@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  track_pkg:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: track_pkg
+    ports:
+      - "8080:80"
+    restart: unless-stopped
