@@ -40,6 +40,23 @@ export interface Checkpoint {
   };
 }
 
+/**
+ * Represents a geographical hub grouping multiple package journey checkpoints occurring at the same location.
+ */
+export interface LocationGroup {
+  id: string;
+  locationKey: string;
+  city: string;
+  stateCountry: string;
+  locationName: string;
+  latitude: number;
+  longitude: number;
+  checkpoints: Checkpoint[];
+  latestCheckpoint: Checkpoint;
+  facilityType: Checkpoint['facilityType'];
+  hasWeatherAlert: boolean;
+}
+
 export interface PackageData {
   trackingNumber: string;
   carrier: CarrierInfo;

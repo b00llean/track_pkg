@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { PackageData, Checkpoint } from '../types/tracking';
+import { PackageData, LocationGroup } from '../types/tracking';
+import { groupCheckpointsByLocation } from '../utils/grouping';
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -21,15 +22,14 @@ interface InteractiveMapProps {
 }
 
 // Map Auto-Fitter Component (Initial route fitting)
-const MapBoundsFitter: React.FC<{ checkpoints: Checkpoint[] }> = ({ checkpoints }) => {
+const MapBoundsFitter: React.FC<{ groups: LocationGroup[] }> = ({ groups }) => {
   const map = useMap();
 
   useEffect(() => {
-    if (checkpoints && checkpoints.length > 0) {
+    if (groups && groups.length > 0) {
       map.invalidateSize();
-      const bounds = L.latLngBounds(checkpoints.map((cp) => [cp.latitude, cp.longitude]));
+      const bounds = L.latLngBounds(groups.map((g) => [g.latitude, g.longitude]));
       const mapSize = map.getSize();
-      // Calculate 5% padding on all sides so the path spans 90% of map viewport width or height end-to-end
       const padX = Math.max(8, Math.round(mapSize.x * 0.05));
       const padY = Math.max(8, Math.round(mapSize.y * 0.05));
 
@@ -40,53 +40,59 @@ const MapBoundsFitter: React.FC<{ checkpoints: Checkpoint[] }> = ({ checkpoints 
         animate: true,
       });
     }
-  }, [checkpoints, map]);
+  }, [groups, map]);
 
   return null;
 };
 
-// Map Controller for Flying / Repositioning to Selected Checkpoint
+// Map Controller for Flying / Repositioning to Selected Checkpoint/Location
 const MapController: React.FC<{
-  checkpoints: Checkpoint[];
+  groups: LocationGroup[];
   activeCheckpointId?: string;
-}> = ({ checkpoints, activeCheckpointId }) => {
+}> = ({ groups, activeCheckpointId }) => {
   const map = useMap();
 
   useEffect(() => {
     if (activeCheckpointId) {
-      const activeCp = checkpoints.find((cp) => cp.id === activeCheckpointId);
-      if (activeCp) {
+      const activeGroup = groups.find((g) =>
+        g.checkpoints.some((cp) => cp.id === activeCheckpointId)
+      );
+      if (activeGroup) {
         const currentZoom = map.getZoom();
         const targetZoom = Math.max(currentZoom, 13);
-        map.flyTo([activeCp.latitude, activeCp.longitude], targetZoom, {
+        map.flyTo([activeGroup.latitude, activeGroup.longitude], targetZoom, {
           duration: 1.2,
           easeLinearity: 0.25,
         });
       }
     }
-  }, [activeCheckpointId, checkpoints, map]);
+  }, [activeCheckpointId, groups, map]);
 
   return null;
 };
 
-// Generate Leaflet divIcon with carrier theme colors and status symbols
-const createCustomMarkerIcon = (cp: Checkpoint, isLast: boolean, isSelected: boolean) => {
+// Generate Leaflet divIcon for a LocationGroup
+const createLocationGroupMarkerIcon = (
+  group: LocationGroup,
+  isLastGroup: boolean,
+  isSelected: boolean
+) => {
   let iconEmoji = '📍';
   let badgeColor = 'bg-slate-700 text-white border-slate-600';
 
-  if (cp.facilityType === 'origin') {
+  if (group.facilityType === 'origin') {
     iconEmoji = '🏭';
     badgeColor = 'bg-slate-800 text-slate-200 border-slate-600';
-  } else if (cp.facilityType === 'sorting_hub') {
+  } else if (group.facilityType === 'sorting_hub') {
     iconEmoji = '📦';
     badgeColor = 'bg-purple-600 text-white border-purple-400';
-  } else if (cp.status === 'delivered') {
+  } else if (group.checkpoints.some((cp) => cp.status === 'delivered')) {
     iconEmoji = '🏠';
     badgeColor = 'bg-emerald-500 text-white border-emerald-300';
-  } else if (cp.status === 'out_for_delivery') {
+  } else if (group.checkpoints.some((cp) => cp.status === 'out_for_delivery')) {
     iconEmoji = '🚚';
     badgeColor = 'bg-amber-500 text-white border-amber-300';
-  } else if (isLast) {
+  } else if (isLastGroup) {
     iconEmoji = '📍';
     badgeColor = 'bg-indigo-600 text-white border-indigo-300';
   }
@@ -95,15 +101,23 @@ const createCustomMarkerIcon = (cp: Checkpoint, isLast: boolean, isSelected: boo
     ? 'scale-125 border-indigo-400 shadow-indigo-500/80 shadow-2xl ring-4 ring-indigo-400/80 ring-offset-2 ring-offset-slate-950'
     : 'hover:scale-110';
 
+  const countBadge =
+    group.checkpoints.length > 1
+      ? `<span class="absolute -top-1.5 -right-1.5 bg-indigo-500 text-white text-[10px] font-bold font-mono px-1.5 py-0.2 rounded-full border border-slate-950 shadow-md">
+          ${group.checkpoints.length}
+         </span>`
+      : '';
+
   const html = `
     <div class="relative group flex items-center justify-center">
       ${
-        isSelected || isLast
+        isSelected || isLastGroup
           ? `<div class="absolute -inset-3 rounded-full bg-indigo-500/50 animate-ping"></div>`
           : ''
       }
-      <div class="relative flex items-center justify-center w-9 h-9 rounded-full ${badgeColor} shadow-lg border-2 font-bold text-sm transition-all duration-300 ${activeStyles}">
+      <div class="relative flex items-center justify-center w-10 h-10 rounded-full ${badgeColor} shadow-lg border-2 font-bold text-sm transition-all duration-300 ${activeStyles}">
         <span>${iconEmoji}</span>
+        ${countBadge}
       </div>
     </div>
   `;
@@ -111,9 +125,9 @@ const createCustomMarkerIcon = (cp: Checkpoint, isLast: boolean, isSelected: boo
   return L.divIcon({
     html,
     className: `custom-leaflet-marker ${isSelected ? 'z-[1000]' : ''}`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-    popupAnchor: [0, -22],
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -24],
   });
 };
 
@@ -121,14 +135,12 @@ const createCustomMarkerIcon = (cp: Checkpoint, isLast: boolean, isSelected: boo
 const createTransitTimeIcon = (durationText: string) => {
   const html = `
     <div class="flex items-center transform -translate-x-3.5 -translate-y-3.5 group">
-      <!-- Underground Circle with centered Clock Icon -->
       <div class="w-7 h-7 rounded-full bg-slate-950 border-2 border-indigo-500/90 shadow-xl flex items-center justify-center flex-shrink-0 z-10 transition-transform group-hover:scale-110">
         <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/>
           <polyline points="12 6 12 12 16 14"/>
         </svg>
       </div>
-      <!-- Duration Text Badge attached seamlessly to the circle -->
       <div class="-ml-2 pl-3.5 pr-2.5 py-0.5 rounded-r-full bg-slate-950/90 border border-l-0 border-indigo-500/60 text-indigo-300 font-mono text-[10px] font-bold shadow-xl backdrop-blur-md whitespace-nowrap">
         ${durationText}
       </div>
@@ -143,9 +155,6 @@ const createTransitTimeIcon = (durationText: string) => {
   });
 };
 
-/**
- * Calculate transit duration between two timestamp strings
- */
 function calculateTransitDuration(ts1: string, ts2: string): string {
   try {
     const parseTs = (s: string) => {
@@ -183,34 +192,42 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   onSelectCheckpoint,
 }) => {
   const { checkpoints, carrier } = packageData;
-  const polylineCoords: [number, number][] = checkpoints.map((cp) => [cp.latitude, cp.longitude]);
+  const groups = groupCheckpointsByLocation(checkpoints);
+  const polylineCoords: [number, number][] = groups.map((g) => [g.latitude, g.longitude]);
   const markerRefs = React.useRef<{ [key: string]: L.Marker | null }>({});
 
-  // Automatically open popup for active checkpoint
+  // Automatically open popup for active location group marker
   useEffect(() => {
-    if (activeCheckpointId && markerRefs.current[activeCheckpointId]) {
-      const marker = markerRefs.current[activeCheckpointId];
-      marker?.openPopup();
+    if (activeCheckpointId) {
+      const targetGroup = groups.find((g) =>
+        g.checkpoints.some((cp) => cp.id === activeCheckpointId)
+      );
+      if (targetGroup && markerRefs.current[targetGroup.id]) {
+        markerRefs.current[targetGroup.id]?.openPopup();
+      }
     }
-  }, [activeCheckpointId]);
+  }, [activeCheckpointId, groups]);
 
-  // Calculate segment midpoints and durations for transit line labels
+  // Calculate segment midpoints between distinct location groups
   const segments = [];
-  for (let i = 0; i < checkpoints.length - 1; i++) {
-    const cp1 = checkpoints[i];
-    const cp2 = checkpoints[i + 1];
+  for (let i = 0; i < groups.length - 1; i++) {
+    const g1 = groups[i];
+    const g2 = groups[i + 1];
 
-    const midLat = (cp1.latitude + cp2.latitude) / 2;
-    const midLng = (cp1.longitude + cp2.longitude) / 2;
-    const durationText = calculateTransitDuration(cp1.timestamp, cp2.timestamp);
+    const midLat = (g1.latitude + g2.latitude) / 2;
+    const midLng = (g1.longitude + g2.longitude) / 2;
+    const durationText = calculateTransitDuration(
+      g1.latestCheckpoint.timestamp,
+      g2.checkpoints[0].timestamp
+    );
 
     segments.push({
-      id: `seg-${cp1.id}-${cp2.id}`,
+      id: `seg-${g1.id}-${g2.id}`,
       midLat,
       midLng,
       durationText,
-      from: cp1.city,
-      to: cp2.city,
+      from: g1.city,
+      to: g2.city,
     });
   }
 
@@ -225,7 +242,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         </div>
         <div className="h-4 w-px bg-slate-800"></div>
         <span className="text-xs text-slate-400 font-mono">
-          {checkpoints.length} Checkpoints • {segments.length} Leg{segments.length > 1 ? 's' : ''}
+          {groups.length} Location Pin{groups.length > 1 ? 's' : ''} ({checkpoints.length} Events)
         </span>
       </div>
 
@@ -236,23 +253,19 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         scrollWheelZoom={true}
         className="w-full h-full"
       >
-        {/* CartoDB Dark Matter Vector Tile Layer */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           maxZoom={19}
         />
 
-        {/* Auto fit bounds when checkpoints route changes */}
-        <MapBoundsFitter checkpoints={checkpoints} />
+        <MapBoundsFitter groups={groups} />
 
-        {/* Reposition map view when active checkpoint changes */}
-        <MapController checkpoints={checkpoints} activeCheckpointId={activeCheckpointId} />
+        <MapController groups={groups} activeCheckpointId={activeCheckpointId} />
 
-        {/* Route Polylines */}
+        {/* Route Polylines connecting location hubs */}
         {polylineCoords.length > 1 && (
           <>
-            {/* Outer Glow Polyline */}
             <Polyline
               positions={polylineCoords}
               pathOptions={{
@@ -262,7 +275,6 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
                 lineCap: 'round',
               }}
             />
-            {/* Inner Core Animated Line */}
             <Polyline
               positions={polylineCoords}
               pathOptions={{
@@ -276,7 +288,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           </>
         )}
 
-        {/* Transit Line Midpoint Labels (Duration in Transit) */}
+        {/* Transit Line Midpoint Labels */}
         {segments.map((seg) => (
           <Marker
             key={seg.id}
@@ -286,31 +298,31 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           />
         ))}
 
-        {/* Checkpoint Markers & Permanent Arrival Time Labels */}
-        {checkpoints.map((cp, idx) => {
-          const isLast = idx === checkpoints.length - 1;
-          const isSelected = cp.id === activeCheckpointId;
-          const markerIcon = createCustomMarkerIcon(cp, isLast, isSelected);
+        {/* Grouped Location Markers */}
+        {groups.map((group, idx) => {
+          const isLastGroup = idx === groups.length - 1;
+          const isSelected = group.checkpoints.some((cp) => cp.id === activeCheckpointId);
+          const markerIcon = createLocationGroupMarkerIcon(group, isLastGroup, isSelected);
 
           return (
             <Marker
-              key={cp.id}
-              position={[cp.latitude, cp.longitude]}
+              key={group.id}
+              position={[group.latitude, group.longitude]}
               icon={markerIcon}
               ref={(ref) => {
                 if (ref) {
-                  markerRefs.current[cp.id] = ref;
+                  markerRefs.current[group.id] = ref;
                 }
               }}
               eventHandlers={{
-                click: () => onSelectCheckpoint?.(cp.id),
+                click: () => onSelectCheckpoint?.(group.latestCheckpoint.id),
               }}
             >
-              {/* Permanent Label Pin Badge displaying arrival timestamp */}
+              {/* Permanent Label Badge */}
               <Tooltip
                 permanent
                 direction="top"
-                offset={[0, -22]}
+                offset={[0, -24]}
                 className="custom-pin-label-tooltip"
               >
                 <div
@@ -321,32 +333,36 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
                   }`}
                 >
                   <span className={isSelected ? 'text-indigo-300 font-bold' : 'text-indigo-400 font-semibold'}>
-                    {cp.city}
+                    {group.city}
                   </span>
                   <span className="text-slate-600">•</span>
-                  <span className="text-slate-300 font-mono text-[10px]">{cp.timestamp}</span>
+                  <span className="text-slate-300 font-mono text-[10px]">
+                    {group.checkpoints.length} {group.checkpoints.length === 1 ? 'Step' : 'Steps'}
+                  </span>
                 </div>
               </Tooltip>
 
               <Popup className="custom-dark-popup">
-                <div className="space-y-1.5 p-1 min-w-[210px]">
+                <div className="space-y-1.5 p-1 min-w-[200px]">
                   <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
-                    <span className="font-semibold text-xs text-indigo-400">
-                      Step #{cp.sequence} of {checkpoints.length}
+                    <span className="font-bold text-xs text-indigo-400 flex items-center gap-1">
+                      📍 {group.city}{group.stateCountry ? `, ${group.stateCountry}` : ''}
                     </span>
-                    <span className="text-[10px] text-slate-400">{cp.timestamp}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px] font-mono font-semibold">
+                      {group.checkpoints.length} {group.checkpoints.length === 1 ? 'Event' : 'Events'}
+                    </span>
                   </div>
-                  <h4 className="font-heading font-bold text-sm text-white">{cp.statusTitle}</h4>
-                  <p className="text-xs text-slate-300 flex items-center gap-1 font-medium">
-                    <span>📍</span> {cp.location}
-                  </p>
-                  <p className="text-[11px] text-slate-400 leading-snug">{cp.details}</p>
 
-                  {cp.weatherAlert && (
-                    <div className="mt-2 p-1.5 rounded bg-amber-950/60 border border-amber-600/40 text-[10px] text-amber-300">
-                      ⚠️ <strong>{cp.weatherAlert.condition}</strong>: {cp.weatherAlert.description}
-                    </div>
-                  )}
+                  <div className="space-y-1 pt-0.5">
+                    <h4 className="font-heading font-bold text-sm text-white">{group.latestCheckpoint.statusTitle}</h4>
+                    <p className="text-[11px] text-slate-400 font-mono">{group.latestCheckpoint.timestamp}</p>
+                    <p className="text-[11px] text-slate-300 leading-snug">{group.latestCheckpoint.details}</p>
+                    {group.hasWeatherAlert && (
+                      <div className="mt-1.5 p-1.5 rounded bg-amber-950/60 border border-amber-600/40 text-[10px] text-amber-300">
+                        ⚠️ Weather warning logged at this location
+                      </div>
+                    )}
+                  </div>
                 </div>
               </Popup>
             </Marker>
