@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle2,
   Truck,
@@ -10,8 +10,9 @@ import {
   ChevronDown,
   ChevronUp,
   MapPin,
+  ArrowDown,
 } from 'lucide-react';
-import { Checkpoint, StatusCategory } from '../types/tracking';
+import { Checkpoint, StatusCategory, LocationGroup } from '../types/tracking';
 import { groupCheckpointsByLocation } from '../utils/grouping';
 
 interface JourneyTimelineProps {
@@ -50,6 +51,44 @@ const getStatusBadge = (status: StatusCategory) => {
   }
 };
 
+function calculateTransitTimeBetweenGroups(laterGroup: LocationGroup, earlierGroup: LocationGroup): string {
+  try {
+    const depTimeStr = earlierGroup.latestCheckpoint.timestamp;
+    const arrTimeStr = laterGroup.checkpoints[0].timestamp;
+
+    const parseTs = (s: string) => {
+      const cleaned = s.replace('-', '').trim();
+      const d = new Date(cleaned);
+      return isNaN(d.getTime()) ? null : d.getTime();
+    };
+
+    const ms1 = parseTs(depTimeStr);
+    const ms2 = parseTs(arrTimeStr);
+
+    if (ms1 && ms2) {
+      const diffMs = Math.abs(ms2 - ms1);
+      const totalMins = Math.floor(diffMs / (1000 * 60));
+      const hours = Math.floor(totalMins / 60);
+      const mins = totalMins % 60;
+      const days = Math.floor(hours / 24);
+
+      if (days > 0) {
+        const remHours = hours % 24;
+        return remHours > 0 ? `${days}d ${remHours}h transit` : `${days}d transit`;
+      } else if (hours > 0 && mins > 0) {
+        return `${hours}h ${mins}m transit`;
+      } else if (hours > 0) {
+        return `${hours}h transit`;
+      } else if (mins > 0) {
+        return `${mins}m transit`;
+      }
+    }
+  } catch (e) {
+    console.warn('Duration parse error:', e);
+  }
+  return 'In transit';
+}
+
 export const JourneyTimeline: React.FC<JourneyTimelineProps> = ({
   checkpoints,
   activeCheckpointId,
@@ -57,19 +96,48 @@ export const JourneyTimeline: React.FC<JourneyTimelineProps> = ({
 }) => {
   // Group checkpoints by location
   const locationGroups = groupCheckpointsByLocation(checkpoints);
-  // Display location groups descending (latest location group first)
+  // Display location groups descending (latest location group first at top)
   const reversedGroups = [...locationGroups].reverse();
 
-  // Track expanded/folded state for each location group (default: all expanded)
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  // Track expanded state for each location group (default: ALL COLLAPSED)
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
-  const toggleGroupCollapse = (groupId: string, e: React.MouseEvent) => {
+  // Auto-expand group if activeCheckpointId changes or matches
+  useEffect(() => {
+    if (activeCheckpointId) {
+      const activeGroup = locationGroups.find((g) =>
+        g.checkpoints.some((cp) => cp.id === activeCheckpointId)
+      );
+      if (activeGroup) {
+        setExpandedGroups((prev) => ({
+          ...prev,
+          [activeGroup.id]: true,
+        }));
+      }
+    }
+  }, [activeCheckpointId, locationGroups]);
+
+  const toggleGroupExpand = (groupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setCollapsedGroups((prev) => ({
+    setExpandedGroups((prev) => ({
       ...prev,
       [groupId]: !prev[groupId],
     }));
   };
+
+  const expandAll = () => {
+    const all: Record<string, boolean> = {};
+    locationGroups.forEach((g) => {
+      all[g.id] = true;
+    });
+    setExpandedGroups(all);
+  };
+
+  const collapseAll = () => {
+    setExpandedGroups({});
+  };
+
+  const hasAnyExpanded = Object.values(expandedGroups).some(Boolean);
 
   return (
     <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
@@ -81,144 +149,176 @@ export const JourneyTimeline: React.FC<JourneyTimelineProps> = ({
           <h3 className="font-heading font-bold text-base text-white">Journey Milestone Timeline</h3>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={hasAnyExpanded ? collapseAll : expandAll}
+            className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
+          >
+            {hasAnyExpanded ? 'Collapse All' : 'Expand All'}
+          </button>
           <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-mono">
-            {locationGroups.length} Location{locationGroups.length > 1 ? 's' : ''} • {checkpoints.length} Events
+            {locationGroups.length} Location{locationGroups.length > 1 ? 's' : ''}
           </span>
         </div>
       </div>
 
-      {/* Main Timeline Group List */}
-      <div className="space-y-4">
+      {/* Main Timeline Group List with Connectors */}
+      <div className="space-y-1">
         {reversedGroups.map((group, groupIdx) => {
           const isLatestGroup = groupIdx === 0;
-          const isCollapsed = Boolean(collapsedGroups[group.id]);
+          const isExpanded = Boolean(expandedGroups[group.id]);
           const hasActiveStep = group.checkpoints.some((cp) => cp.id === activeCheckpointId);
           // Show steps in reverse within group so latest event is at top
           const reversedCheckpoints = [...group.checkpoints].reverse();
 
           return (
-            <div
-              key={group.id}
-              className={`rounded-xl border transition-all overflow-hidden ${
-                hasActiveStep
-                  ? 'bg-indigo-950/30 border-indigo-500/50 shadow-lg shadow-indigo-500/5'
-                  : 'bg-slate-900/50 border-slate-800/90 hover:border-slate-700/80'
-              }`}
-            >
-              {/* Location Group Header Banner */}
+            <React.Fragment key={group.id}>
+              {/* Location Group Bubble Container */}
               <div
-                onClick={(e) => toggleGroupCollapse(group.id, e)}
-                className="flex items-center justify-between p-3.5 bg-slate-900/80 hover:bg-slate-850 cursor-pointer border-b border-slate-800/60 select-none"
+                className={`rounded-xl border transition-all overflow-hidden ${
+                  hasActiveStep
+                    ? 'bg-indigo-950/40 border-indigo-500/60 shadow-lg shadow-indigo-500/10'
+                    : 'bg-slate-900/60 border-slate-800/90 hover:border-slate-700'
+                }`}
               >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center border font-bold text-xs ${
-                      isLatestGroup
-                        ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
-                        : 'bg-slate-800 border-slate-700 text-slate-300'
-                    }`}
-                  >
-                    <MapPin className="w-4 h-4 text-indigo-400" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-heading font-bold text-sm text-white">
-                        {group.city} {group.stateCountry ? `, ${group.stateCountry}` : ''}
-                      </h4>
-                      {isLatestGroup && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500 text-white shadow-sm">
-                          CURRENT LOCATION
-                        </span>
-                      )}
+                {/* Location Group Header Banner */}
+                <div
+                  onClick={(e) => toggleGroupExpand(group.id, e)}
+                  className="flex items-center justify-between p-3.5 bg-slate-900/90 hover:bg-slate-850 cursor-pointer select-none transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center border font-bold text-xs shadow-md shrink-0 ${
+                        isLatestGroup
+                          ? 'bg-indigo-500/20 border-indigo-500/60 text-indigo-300'
+                          : 'bg-slate-800 border-slate-700 text-slate-300'
+                      }`}
+                    >
+                      <MapPin className="w-4 h-4 text-indigo-400" />
                     </div>
-                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5 font-medium">
-                      <Building2 className="w-3 h-3 text-slate-500" />
-                      <span>{group.locationName}</span>
-                    </p>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-heading font-bold text-sm text-white">
+                          {group.city}{group.stateCountry ? `, ${group.stateCountry}` : ''}
+                        </h4>
+                        {isLatestGroup && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500 text-white shadow-sm">
+                            CURRENT
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5 font-medium">
+                        <Building2 className="w-3 h-3 text-slate-500 shrink-0" />
+                        <span className="truncate max-w-[220px] sm:max-w-xs">{group.latestCheckpoint.statusTitle}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <span className="px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 text-[11px] font-mono font-medium border border-slate-700/80">
+                      {group.checkpoints.length} {group.checkpoints.length === 1 ? 'Event' : 'Events'}
+                    </span>
+                    <button
+                      type="button"
+                      className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                      title={isExpanded ? 'Collapse location events' : 'Expand location events'}
+                    >
+                      {isExpanded ? <ChevronUp className="w-4 h-4 text-indigo-400" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 text-xs font-mono font-medium border border-slate-700/80">
-                    {group.checkpoints.length} {group.checkpoints.length === 1 ? 'Step' : 'Steps'}
-                  </span>
-                  <button className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
-                    {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
+                {/* Expanded Steps Details Container */}
+                {isExpanded && (
+                  <div className="p-3.5 space-y-3 border-t border-slate-800/80 bg-slate-950/40 relative pl-8 before:absolute before:left-5 before:top-4 before:bottom-4 before:w-0.5 before:bg-slate-800">
+                    {reversedCheckpoints.map((cp, stepIdx) => {
+                      const isLatestStepInGroup = stepIdx === 0 && isLatestGroup;
+                      const isSelected = cp.id === activeCheckpointId;
+                      const badgeStyle = getStatusBadge(cp.status);
 
-              {/* Folded / Expanded Steps Container */}
-              {!isCollapsed && (
-                <div className="p-3.5 space-y-3 relative pl-8 before:absolute before:left-5 before:top-4 before:bottom-4 before:w-0.5 before:bg-slate-800">
-                  {reversedCheckpoints.map((cp, stepIdx) => {
-                    const isLatestStepInGroup = stepIdx === 0 && isLatestGroup;
-                    const isSelected = cp.id === activeCheckpointId;
-                    const badgeStyle = getStatusBadge(cp.status);
-
-                    return (
-                      <div
-                        key={cp.id}
-                        onClick={() => onSelectCheckpoint?.(cp.id)}
-                        className={`relative group p-3 rounded-xl border transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-indigo-950/60 border-indigo-500 shadow-md shadow-indigo-500/10'
-                            : 'bg-slate-950/60 border-slate-800/80 hover:bg-slate-900/80 hover:border-slate-700'
-                        }`}
-                      >
-                        {/* Timeline Bullet Connector */}
+                      return (
                         <div
-                          className={`absolute -left-[22px] top-3.5 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
-                            isLatestStepInGroup
-                              ? 'bg-indigo-500 border-indigo-300 shadow-sm scale-110'
-                              : isSelected
-                              ? 'bg-indigo-400 border-indigo-200'
-                              : 'bg-slate-900 border-slate-600 group-hover:border-indigo-400'
+                          key={cp.id}
+                          onClick={() => onSelectCheckpoint?.(cp.id)}
+                          className={`relative group p-3 rounded-xl border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-indigo-950/60 border-indigo-500 shadow-md shadow-indigo-500/10'
+                              : 'bg-slate-900/70 border-slate-800/80 hover:bg-slate-900 hover:border-slate-700'
                           }`}
                         >
+                          {/* Timeline Bullet Connector */}
                           <div
-                            className={`w-1 h-1 rounded-full ${
-                              isLatestStepInGroup || isSelected ? 'bg-white' : 'bg-slate-500 group-hover:bg-indigo-400'
+                            className={`absolute -left-[22px] top-3.5 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                              isLatestStepInGroup
+                                ? 'bg-indigo-500 border-indigo-300 shadow-sm scale-110'
+                                : isSelected
+                                ? 'bg-indigo-400 border-indigo-200'
+                                : 'bg-slate-900 border-slate-600 group-hover:border-indigo-400'
                             }`}
-                          />
-                        </div>
-
-                        {/* Step Details */}
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border ${badgeStyle.bg}`}>
-                              {badgeStyle.icon}
-                              <span>{cp.statusTitle}</span>
-                            </span>
-                            <span className="text-[11px] text-slate-400 font-mono flex-shrink-0">
-                              {cp.timestamp}
-                            </span>
+                          >
+                            <div
+                              className={`w-1 h-1 rounded-full ${
+                                isLatestStepInGroup || isSelected ? 'bg-white' : 'bg-slate-500 group-hover:bg-indigo-400'
+                              }`}
+                            />
                           </div>
 
-                          <p className="text-xs text-slate-300 leading-relaxed pt-0.5 font-normal">
-                            {cp.details}
-                          </p>
-
-                          {cp.weatherAlert && (
-                            <div className="mt-2 p-2 rounded-lg bg-amber-950/50 border border-amber-500/30 flex items-start gap-2 text-xs text-amber-300">
-                              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-                              <div>
-                                <span className="font-semibold text-amber-200">
-                                  Weather Alert: {cp.weatherAlert.condition}
-                                </span>
-                                <p className="text-amber-300/80 text-[11px] mt-0.5">
-                                  {cp.weatherAlert.description}
-                                </p>
-                              </div>
+                          {/* Step Details */}
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border ${badgeStyle.bg}`}>
+                                {badgeStyle.icon}
+                                <span>{cp.statusTitle}</span>
+                              </span>
+                              <span className="text-[11px] text-slate-400 font-mono flex-shrink-0">
+                                {cp.timestamp}
+                              </span>
                             </div>
-                          )}
+
+                            <p className="text-xs text-slate-300 leading-relaxed pt-0.5 font-normal">
+                              {cp.details}
+                            </p>
+
+                            {cp.weatherAlert && (
+                              <div className="mt-2 p-2 rounded-lg bg-amber-950/50 border border-amber-500/30 flex items-start gap-2 text-xs text-amber-300">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                                <div>
+                                  <span className="font-semibold text-amber-200">
+                                    Weather Alert: {cp.weatherAlert.condition}
+                                  </span>
+                                  <p className="text-amber-300/80 text-[11px] mt-0.5">
+                                    {cp.weatherAlert.description}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Inter-Location Transit Connector with Duration Label */}
+              {groupIdx < reversedGroups.length - 1 && (
+                <div className="relative py-2.5 flex items-center justify-center">
+                  {/* Vertical Connector Line */}
+                  <div className="absolute inset-y-0 left-8 w-0.5 bg-gradient-to-b from-indigo-500/60 via-purple-500/40 to-slate-800 -z-0"></div>
+
+                  {/* Transit Duration Label Badge */}
+                  <div className="relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-indigo-500/40 text-[11px] font-mono font-bold text-indigo-300 shadow-xl backdrop-blur-md">
+                    <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+                    <span>
+                      {calculateTransitTimeBetweenGroups(
+                        group,
+                        reversedGroups[groupIdx + 1]
+                      )}
+                    </span>
+                    <ArrowDown className="w-3 h-3 text-indigo-400 shrink-0" />
+                  </div>
                 </div>
               )}
-            </div>
+            </React.Fragment>
           );
         })}
       </div>
