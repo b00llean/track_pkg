@@ -222,9 +222,13 @@ export async function fetchLivePackageTracking(
   if (estDateObj?.from) {
     try {
       const d = new Date(estDateObj.from);
-      estimatedDelivery = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      if (!isNaN(d.getTime())) {
+        estimatedDelivery = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      } else {
+        estimatedDelivery = String(estDateObj.from);
+      }
     } catch {
-      estimatedDelivery = estDateObj.from;
+      estimatedDelivery = String(estDateObj.from);
     }
   }
 
@@ -248,6 +252,8 @@ export async function fetchLivePackageTracking(
     };
 
     const carrierObj = CARRIERS[detectedCarrierId] || CARRIERS.fedex;
+    const rawPieces = parseInt(miscInfo.pieces || '1', 10);
+    const safePieces = isNaN(rawPieces) || rawPieces < 1 ? 1 : rawPieces;
 
     return {
       trackingNumber: cleanNum,
@@ -260,7 +266,7 @@ export async function fetchLivePackageTracking(
       estimatedDelivery: estimatedDelivery,
       shippingService: serviceName,
       weight: packageWeight,
-      pieces: parseInt(miscInfo.pieces || '1', 10),
+      pieces: safePieces,
       progressPercent: 20,
       isDelivered: false,
       lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' Live 17TRACK',
@@ -342,6 +348,9 @@ export async function fetchLivePackageTracking(
   const overallStatus = latestCp.status;
   const carrierObj = CARRIERS[detectedCarrierId] || CARRIERS.fedex;
 
+  const rawFinalPieces = parseInt(miscInfo.pieces || '1', 10);
+  const safeFinalPieces = isNaN(rawFinalPieces) || rawFinalPieces < 1 ? 1 : rawFinalPieces;
+
   return {
     trackingNumber: cleanNum,
     carrier: carrierObj,
@@ -363,7 +372,7 @@ export async function fetchLivePackageTracking(
     estimatedDelivery: estimatedDelivery,
     shippingService: serviceName,
     weight: packageWeight,
-    pieces: parseInt(miscInfo.pieces || '1', 10),
+    pieces: safeFinalPieces,
     progressPercent: calculateProgress(overallStatus, hydratedCheckpoints.length),
     isDelivered: overallStatus === 'delivered',
     lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' Live 17TRACK',

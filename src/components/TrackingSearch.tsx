@@ -36,10 +36,12 @@ export const TrackingSearch: React.FC<TrackingSearchProps> = ({
   }, [inputVal]);
 
 
+  // Handle search submit, trimming whitespace and guarding against double submissions while loading
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputVal.trim()) {
-      onSearch(inputVal.trim());
+    const cleanNumber = inputVal.trim();
+    if (cleanNumber && !isLoading) {
+      onSearch(cleanNumber);
     }
   };
 

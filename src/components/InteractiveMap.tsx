@@ -28,17 +28,25 @@ const MapBoundsFitter: React.FC<{ groups: LocationGroup[] }> = ({ groups }) => {
   useEffect(() => {
     if (groups && groups.length > 0) {
       map.invalidateSize();
-      const bounds = L.latLngBounds(groups.map((g) => [g.latitude, g.longitude]));
-      const mapSize = map.getSize();
-      const padX = Math.max(8, Math.round(mapSize.x * 0.05));
-      const padY = Math.max(8, Math.round(mapSize.y * 0.05));
+      if (groups.length === 1) {
+        // Single location hub: center map directly with fixed zoom
+        map.setView([groups[0].latitude, groups[0].longitude], 11, { animate: true });
+      } else {
+        // Multi-location journey: fit bounds across all pins with padding
+        const bounds = L.latLngBounds(groups.map((g) => [g.latitude, g.longitude]));
+        if (bounds.isValid()) {
+          const mapSize = map.getSize();
+          const padX = Math.max(8, Math.round(mapSize.x * 0.05));
+          const padY = Math.max(8, Math.round(mapSize.y * 0.05));
 
-      map.fitBounds(bounds, {
-        paddingTopLeft: [padX, padY],
-        paddingBottomRight: [padX, padY],
-        maxZoom: 16,
-        animate: true,
-      });
+          map.fitBounds(bounds, {
+            paddingTopLeft: [padX, padY],
+            paddingBottomRight: [padX, padY],
+            maxZoom: 14,
+            animate: true,
+          });
+        }
+      }
     }
   }, [groups, map]);
 

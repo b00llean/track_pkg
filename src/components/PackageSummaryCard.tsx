@@ -178,7 +178,7 @@ export const PackageSummaryCard: React.FC<PackageSummaryCardProps> = ({
             )}
             {pieces && (
               <span className="flex items-center gap-1" title="Piece Count">
-                <Layers className="w-3.5 h-3.5 text-slate-500" /> {pieces} Piece
+                <Layers className="w-3.5 h-3.5 text-slate-500" /> {pieces} {pieces > 1 ? 'Pieces' : 'Piece'}
               </span>
             )}
           </div>
