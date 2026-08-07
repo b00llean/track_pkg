@@ -1,13 +1,22 @@
 import React from 'react';
-import { Package, History, Compass, ShieldCheck, FilePlus } from 'lucide-react';
+import { Package, History, ShieldCheck, FilePlus, Settings, Globe } from 'lucide-react';
+
 
 interface NavbarProps {
   savedCount: number;
   onOpenHistory: () => void;
   onOpenImportModal: () => void;
+  onOpenSettings: () => void;
+  hasApiKey: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ savedCount, onOpenHistory, onOpenImportModal }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  savedCount,
+  onOpenHistory,
+  onOpenImportModal,
+  onOpenSettings,
+  hasApiKey,
+}) => {
   return (
     <header className="sticky top-0 z-30 glass-panel border-b border-slate-800/80 px-4 lg:px-8 py-3.5 transition-all">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -24,8 +33,8 @@ export const Navbar: React.FC<NavbarProps> = ({ savedCount, onOpenHistory, onOpe
               <h1 className="font-heading font-extrabold text-xl tracking-tight text-white">
                 Track<span className="text-indigo-400">Pkg</span>
               </h1>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                <Compass className="w-3 h-3" /> GeoVisualizer
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <Globe className="w-3 h-3 animate-pulse text-emerald-400" /> 17TRACK Live
               </span>
             </div>
             <p className="text-xs text-slate-400 hidden sm:block">
@@ -35,13 +44,36 @@ export const Navbar: React.FC<NavbarProps> = ({ savedCount, onOpenHistory, onOpe
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 text-xs">
           
+          {/* Live API Status Badge */}
+          <button
+            onClick={onOpenSettings}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-semibold border transition-all cursor-pointer ${
+              hasApiKey
+                ? 'bg-emerald-950/50 text-emerald-400 border-emerald-500/40 hover:bg-emerald-900/50'
+                : 'bg-amber-950/40 text-amber-400 border-amber-500/30 hover:bg-amber-900/40'
+            }`}
+            title="Configure 17TRACK Live API Settings"
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span>{hasApiKey ? 'Live API Active' : 'Set 17TRACK Key'}</span>
+          </button>
+
+          {/* Settings Modal Button */}
+          <button
+            onClick={onOpenSettings}
+            className="p-2 rounded-xl text-slate-300 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 transition-all cursor-pointer hover:text-white"
+            title="17TRACK API Settings"
+          >
+            <Settings className="w-4 h-4 text-slate-300" />
+          </button>
+
           {/* Import Text Button */}
           <button
             onClick={onOpenImportModal}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer"
-            title="Import Raw Tracking History Text"
+            title="Import Raw Tracking Text"
           >
             <FilePlus className="w-4 h-4 text-indigo-400" />
             <span className="hidden md:inline">Import Custom Text</span>

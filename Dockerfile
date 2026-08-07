@@ -6,8 +6,13 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
+ARG VITE_17TRACK_API_KEY
+ENV VITE_17TRACK_API_KEY=$VITE_17TRACK_API_KEY
+
 COPY . .
+RUN mkdir -p public dist && echo "window.__ENV__ = window.__ENV__ || {}; window.__ENV__.VITE_17TRACK_API_KEY = \"${VITE_17TRACK_API_KEY}\";" > public/env-config.js
 RUN npm run build
+RUN echo "window.__ENV__ = window.__ENV__ || {}; window.__ENV__.VITE_17TRACK_API_KEY = \"${VITE_17TRACK_API_KEY}\";" > dist/env-config.js
 
 # Stage 2: Serve with lightweight Nginx server (~25MB image)
 FROM nginx:alpine AS runner

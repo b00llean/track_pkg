@@ -6,8 +6,10 @@ import { InteractiveMap } from './components/InteractiveMap';
 import { JourneyTimeline } from './components/JourneyTimeline';
 import { PackageHistoryDrawer } from './components/PackageHistoryDrawer';
 import { ImportTrackingModal } from './components/ImportTrackingModal';
+import { SettingsModal } from './components/SettingsModal';
 import { fetchPackageTracking } from './services/trackingService';
-import { PackageData, SavedPackage } from './types/tracking';
+import { getApiSettings, saveApiSettings } from './services/liveTrackingService';
+import { PackageData, SavedPackage, TrackingApiSettings } from './types/tracking';
 import { AlertCircle, MapPin, RefreshCw, Compass } from 'lucide-react';
 
 const STORAGE_KEY = 'track_pkg_saved_history_v1';
@@ -18,6 +20,11 @@ export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeCheckpointId, setActiveCheckpointId] = useState<string | undefined>();
+
+  // API Settings State
+  const [apiSettings, setApiSettings] = useState<TrackingApiSettings>(() => getApiSettings());
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+
 
   // Modals state
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
@@ -42,6 +49,7 @@ export const App: React.FC = () => {
 
   // Load package data on initial mount or when tracking number changes
   const handleTrack = async (num: string) => {
+    if (!num.trim()) return;
     setIsLoading(true);
     setErrorMsg(null);
     setActiveTrackingNum(num);
@@ -50,17 +58,29 @@ export const App: React.FC = () => {
     try {
       const data = await fetchPackageTracking(num);
       setPackageData(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Tracking fetch error:', err);
-      setErrorMsg('Unable to retrieve tracking details for this carrier number. Please verify the format.');
+      setErrorMsg(err.message || 'Unable to retrieve tracking details for this carrier number.');
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    handleTrack(activeTrackingNum);
+    if (apiSettings.apiKey && activeTrackingNum) {
+      handleTrack(activeTrackingNum);
+    } else {
+      setIsLoading(false);
+    }
   }, []);
+
+  const handleSaveSettings = (newSettings: TrackingApiSettings) => {
+    saveApiSettings(newSettings);
+    setApiSettings(newSettings);
+    if (newSettings.apiKey && activeTrackingNum) {
+      handleTrack(activeTrackingNum);
+    }
+  };
 
   const toggleSavePackage = () => {
     if (!packageData) return;
@@ -105,6 +125,8 @@ export const App: React.FC = () => {
         savedCount={savedPackages.length}
         onOpenHistory={() => setIsHistoryOpen(true)}
         onOpenImportModal={() => setIsImportOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        hasApiKey={Boolean(apiSettings.apiKey)}
       />
 
       {/* Main Content Workspace Container */}
@@ -116,7 +138,7 @@ export const App: React.FC = () => {
             Geospatial Multi-Carrier Package Journey
           </h2>
           <p className="text-sm text-slate-400 max-w-xl mx-auto">
-            Input any FedEx, UPS, USPS, or DHL tracking number to view an interactive map route, real-time weather disruption overlays, and milestone timeline.
+            Input any FedEx, UPS, USPS, or DHL live tracking number to view real-time geospatial routes, milestone timelines, and hub weather alerts.
           </p>
         </div>
 
@@ -125,7 +147,13 @@ export const App: React.FC = () => {
           onSearch={handleTrack}
           isLoading={isLoading}
           activeTrackingNum={activeTrackingNum}
+          onKeyUpdated={() => {
+            const updated = getApiSettings();
+            setApiSettings(updated);
+            if (activeTrackingNum) handleTrack(activeTrackingNum);
+          }}
         />
+
 
         {/* Error Notification */}
         {errorMsg && (
@@ -219,6 +247,15 @@ export const App: React.FC = () => {
         onClose={() => setIsImportOpen(false)}
         onImportComplete={handleImportComplete}
       />
+
+      {/* API & Carrier Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={apiSettings}
+        onSaveSettings={handleSaveSettings}
+      />
+
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">

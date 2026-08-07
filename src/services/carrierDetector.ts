@@ -58,40 +58,6 @@ export const CARRIERS: Record<CarrierId, CarrierInfo> = {
   },
 };
 
-export interface SampleTracking {
-  trackingNumber: string;
-  carrierId: CarrierId;
-  label: string;
-  description: string;
-}
-
-export const SAMPLE_TRACKING_NUMBERS: SampleTracking[] = [
-  {
-    trackingNumber: '875278203409',
-    carrierId: 'fedex',
-    label: 'Your FedEx Package (875278203409)',
-    description: 'FedEx Home Delivery: Left Arcadia, CA origin facility',
-  },
-  {
-    trackingNumber: '1Z9999999999999999',
-    carrierId: 'ups',
-    label: 'UPS Ground Express',
-    description: 'In Transit: Louisville Hub -> Chicago IL',
-  },
-  {
-    trackingNumber: '9400100000000000000000',
-    carrierId: 'usps',
-    label: 'USPS Priority Mail',
-    description: 'Delivered: Jersey City NDC -> New York NY',
-  },
-  {
-    trackingNumber: '1234567890',
-    carrierId: 'dhl',
-    label: 'DHL Express Worldwide',
-    description: 'In Transit: Frankfurt Germany -> New York JFK',
-  },
-];
-
 /**
  * Detect carrier based on standard tracking number regular expressions.
  */

@@ -95,3 +95,14 @@ export interface SavedPackage {
   lastChecked: string;
   isDelivered: boolean;
 }
+
+export type ApiProviderId = '17track' | 'ship24' | 'easypost' | 'custom_proxy';
+
+export interface TrackingApiSettings {
+  mode: 'live' | 'demo';
+  provider: ApiProviderId;
+  apiKey: string;
+  customEndpoint?: string;
+  autoGeocode: boolean;
+}
+

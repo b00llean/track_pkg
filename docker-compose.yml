@@ -5,7 +5,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - VITE_17TRACK_API_KEY=${VITE_17TRACK_API_KEY:-}
     container_name: track_pkg
+    env_file:
+      - .env
     ports:
       - "8080:80"
     restart: unless-stopped
+
