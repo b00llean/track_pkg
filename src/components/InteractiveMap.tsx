@@ -66,10 +66,10 @@ const MapController: React.FC<{
         g.checkpoints.some((cp) => cp.id === activeCheckpointId)
       );
       if (activeGroup) {
+        // Refocus map on selected point while maintaining exact current zoom factor
         const currentZoom = map.getZoom();
-        const targetZoom = Math.max(currentZoom, 13);
-        map.flyTo([activeGroup.latitude, activeGroup.longitude], targetZoom, {
-          duration: 1.2,
+        map.flyTo([activeGroup.latitude, activeGroup.longitude], currentZoom, {
+          duration: 1.0,
           easeLinearity: 0.25,
         });
       }

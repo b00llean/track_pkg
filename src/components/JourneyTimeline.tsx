@@ -182,7 +182,13 @@ export const JourneyTimeline: React.FC<JourneyTimelineProps> = ({
               >
                 {/* Location Group Header Banner */}
                 <div
-                  onClick={(e) => toggleGroupExpand(group.id, e)}
+                  onClick={(e) => {
+                    // Toggle expansion and select the group's latest checkpoint
+                    toggleGroupExpand(group.id, e);
+                    if (onSelectCheckpoint && group.latestCheckpoint) {
+                      onSelectCheckpoint(group.latestCheckpoint.id);
+                    }
+                  }}
                   className="flex items-center justify-between p-3.5 bg-slate-900/90 hover:bg-slate-850 cursor-pointer select-none transition-colors"
                 >
                   <div className="flex items-center gap-3">
