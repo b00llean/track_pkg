@@ -34,7 +34,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Track<span className="text-indigo-400">Pkg</span>
               </h1>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <Globe className="w-3 h-3 animate-pulse text-emerald-400" /> 17TRACK Live
+                <Globe className="w-3 h-3 text-emerald-400" /> 17TRACK Live
               </span>
             </div>
             <p className="text-xs text-slate-400 hidden sm:block">
@@ -88,7 +88,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <History className="w-4 h-4 text-indigo-400" />
             <span className="hidden sm:inline">Saved Packages</span>
             {savedCount > 0 && (
-              <span className="ml-0.5 inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-[10px] font-bold bg-indigo-500 text-white shadow-sm shadow-indigo-500/50 animate-pulse">
+              <span className="ml-0.5 inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-[10px] font-bold bg-indigo-500 text-white shadow-sm shadow-indigo-500/50">
                 {savedCount}
               </span>
             )}

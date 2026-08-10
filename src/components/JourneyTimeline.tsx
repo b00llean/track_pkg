@@ -95,9 +95,9 @@ export const JourneyTimeline: React.FC<JourneyTimelineProps> = ({
   onSelectCheckpoint,
 }) => {
   // Group checkpoints by location
-  const locationGroups = groupCheckpointsByLocation(checkpoints);
+  const locationGroups = React.useMemo(() => groupCheckpointsByLocation(checkpoints), [checkpoints]);
   // Display location groups descending (latest location group first at top)
-  const reversedGroups = [...locationGroups].reverse();
+  const reversedGroups = React.useMemo(() => [...locationGroups].reverse(), [locationGroups]);
 
   // Track expanded state for each location group (default: ALL COLLAPSED)
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
@@ -109,10 +109,13 @@ export const JourneyTimeline: React.FC<JourneyTimelineProps> = ({
         g.checkpoints.some((cp) => cp.id === activeCheckpointId)
       );
       if (activeGroup) {
-        setExpandedGroups((prev) => ({
-          ...prev,
-          [activeGroup.id]: true,
-        }));
+        setExpandedGroups((prev) => {
+          if (prev[activeGroup.id]) return prev;
+          return {
+            ...prev,
+            [activeGroup.id]: true,
+          };
+        });
       }
     }
   }, [activeCheckpointId, locationGroups]);
@@ -313,7 +316,7 @@ export const JourneyTimeline: React.FC<JourneyTimelineProps> = ({
 
                   {/* Transit Duration Label Badge */}
                   <div className="relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-indigo-500/40 text-[11px] font-mono font-bold text-indigo-300 shadow-xl backdrop-blur-md">
-                    <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+                    <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                     <span>
                       {calculateTransitTimeBetweenGroups(
                         group,

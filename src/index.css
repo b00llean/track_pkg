@@ -69,30 +69,9 @@
   border-top-color: rgba(15, 23, 42, 0.9) !important;
 }
 
-/* Custom Marker Pulse Animations */
-@keyframes marker-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7);
-  }
-  70% {
-    box-shadow: 0 0 0 16px rgba(99, 102, 241, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
-  }
+/* Styled route polyline without perpetual CPU keyframe animations */
+.styled-route-polyline {
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.animate-marker-pulse {
-  animation: marker-pulse 2s infinite;
-}
-
-/* Polyline dash animation */
-@keyframes dash {
-  to {
-    stroke-dashoffset: -40;
-  }
-}
-
-.animated-polyline {
-  animation: dash 1.5s linear infinite;
-}

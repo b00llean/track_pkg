@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { PackageData, LocationGroup } from '../types/tracking';
@@ -24,6 +24,7 @@ interface InteractiveMapProps {
 // Map Auto-Fitter Component (Initial route fitting)
 const MapBoundsFitter: React.FC<{ groups: LocationGroup[] }> = ({ groups }) => {
   const map = useMap();
+  const groupsKey = groups ? groups.map((g) => `${g.id}:${g.latitude}:${g.longitude}`).join('|') : '';
 
   useEffect(() => {
     if (groups && groups.length > 0) {
@@ -48,7 +49,7 @@ const MapBoundsFitter: React.FC<{ groups: LocationGroup[] }> = ({ groups }) => {
         }
       }
     }
-  }, [groups, map]);
+  }, [groupsKey, map]);
 
   return null;
 };
@@ -120,7 +121,7 @@ const createLocationGroupMarkerIcon = (
     <div class="relative group flex items-center justify-center">
       ${
         isSelected || isLastGroup
-          ? `<div class="absolute -inset-3 rounded-full bg-indigo-500/50 animate-ping"></div>`
+          ? `<div class="absolute -inset-2 rounded-full bg-indigo-500/30 ring-2 ring-indigo-400"></div>`
           : ''
       }
       <div class="relative flex items-center justify-center w-10 h-10 rounded-full ${badgeColor} shadow-lg border-2 font-bold text-sm transition-all duration-300 ${activeStyles}">
@@ -200,8 +201,11 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   onSelectCheckpoint,
 }) => {
   const { checkpoints, carrier } = packageData;
-  const groups = groupCheckpointsByLocation(checkpoints);
-  const polylineCoords: [number, number][] = groups.map((g) => [g.latitude, g.longitude]);
+  const groups = useMemo(() => groupCheckpointsByLocation(checkpoints), [checkpoints]);
+  const polylineCoords: [number, number][] = useMemo(
+    () => groups.map((g) => [g.latitude, g.longitude]),
+    [groups]
+  );
   const markerRefs = React.useRef<{ [key: string]: L.Marker | null }>({});
 
   // Automatically open popup for active location group marker
@@ -217,27 +221,30 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   }, [activeCheckpointId, groups]);
 
   // Calculate segment midpoints between distinct location groups
-  const segments = [];
-  for (let i = 0; i < groups.length - 1; i++) {
-    const g1 = groups[i];
-    const g2 = groups[i + 1];
+  const segments = useMemo(() => {
+    const list = [];
+    for (let i = 0; i < groups.length - 1; i++) {
+      const g1 = groups[i];
+      const g2 = groups[i + 1];
 
-    const midLat = (g1.latitude + g2.latitude) / 2;
-    const midLng = (g1.longitude + g2.longitude) / 2;
-    const durationText = calculateTransitDuration(
-      g1.latestCheckpoint.timestamp,
-      g2.checkpoints[0].timestamp
-    );
+      const midLat = (g1.latitude + g2.latitude) / 2;
+      const midLng = (g1.longitude + g2.longitude) / 2;
+      const durationText = calculateTransitDuration(
+        g1.latestCheckpoint.timestamp,
+        g2.checkpoints[0].timestamp
+      );
 
-    segments.push({
-      id: `seg-${g1.id}-${g2.id}`,
-      midLat,
-      midLng,
-      durationText,
-      from: g1.city,
-      to: g2.city,
-    });
-  }
+      list.push({
+        id: `seg-${g1.id}-${g2.id}`,
+        midLat,
+        midLng,
+        durationText,
+        from: g1.city,
+        to: g2.city,
+      });
+    }
+    return list;
+  }, [groups]);
 
   return (
     <div className="relative w-full h-[480px] lg:h-[560px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950">
@@ -245,7 +252,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       {/* Map Legend & Stats Overlay */}
       <div className="absolute top-4 left-4 z-20 glass-panel px-3.5 py-2.5 rounded-xl border border-slate-800/80 shadow-xl flex items-center gap-3">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+          <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
           <span className="text-xs font-semibold text-white">{carrier.name} Tracking Route</span>
         </div>
         <div className="h-4 w-px bg-slate-800"></div>
@@ -257,7 +264,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       <MapContainer
         center={[polylineCoords[0]?.[0] || 39.8283, polylineCoords[0]?.[1] || -98.5795]}
         zoom={5}
-        zoomSnap={0.25}
+        zoomSnap={0.5}
         scrollWheelZoom={true}
         className="w-full h-full"
       >
@@ -290,7 +297,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
                 weight: 3.5,
                 opacity: 0.95,
                 dashArray: '8, 12',
-                className: 'animated-polyline',
+                className: 'styled-route-polyline',
               }}
             />
           </>
@@ -380,3 +387,4 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     </div>
   );
 };
+

@@ -255,5 +255,8 @@ export async function geocodeLocation(locationStr: string): Promise<[number, num
   }
   const lat = 33.0 + (Math.abs(hash) % 120) / 10.0;
   const lng = -118.0 + (Math.abs(hash >> 2) % 400) / 10.0;
-  return [lat, lng];
+  const fallbackCoords: [number, number] = [lat, lng];
+  geocodeCache.set(normalized, fallbackCoords);
+  return fallbackCoords;
 }
+

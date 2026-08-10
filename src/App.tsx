@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { TrackingSearch } from './components/TrackingSearch';
 import { PackageSummaryCard } from './components/PackageSummaryCard';
@@ -48,7 +48,7 @@ export const App: React.FC = () => {
   }, [savedPackages]);
 
   // Load package data on initial mount or when tracking number changes
-  const handleTrack = async (num: string) => {
+  const handleTrack = useCallback(async (num: string) => {
     if (!num.trim()) return;
     setIsLoading(true);
     setErrorMsg(null);
@@ -64,7 +64,7 @@ export const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (apiSettings.apiKey && activeTrackingNum) {
@@ -74,48 +74,51 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  const handleSaveSettings = (newSettings: TrackingApiSettings) => {
+  const handleSaveSettings = useCallback((newSettings: TrackingApiSettings) => {
     saveApiSettings(newSettings);
     setApiSettings(newSettings);
     if (newSettings.apiKey && activeTrackingNum) {
       handleTrack(activeTrackingNum);
     }
-  };
+  }, [activeTrackingNum, handleTrack]);
 
-  const toggleSavePackage = () => {
+  const toggleSavePackage = useCallback(() => {
     if (!packageData) return;
 
-    const exists = savedPackages.some((p) => p.trackingNumber === packageData.trackingNumber);
-    if (exists) {
-      setSavedPackages(savedPackages.filter((p) => p.trackingNumber !== packageData.trackingNumber));
-    } else {
-      const newEntry: SavedPackage = {
-        trackingNumber: packageData.trackingNumber,
-        carrierId: packageData.carrier.id,
-        carrierName: packageData.carrier.name,
-        statusTitle: packageData.currentStatusTitle,
-        originCity: packageData.origin.city,
-        destCity: packageData.destination.city,
-        lastChecked: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        isDelivered: packageData.isDelivered,
-      };
-      setSavedPackages([newEntry, ...savedPackages]);
-    }
-  };
+    setSavedPackages((prev) => {
+      const exists = prev.some((p) => p.trackingNumber === packageData.trackingNumber);
+      if (exists) {
+        return prev.filter((p) => p.trackingNumber !== packageData.trackingNumber);
+      } else {
+        const newEntry: SavedPackage = {
+          trackingNumber: packageData.trackingNumber,
+          carrierId: packageData.carrier.id,
+          carrierName: packageData.carrier.name,
+          statusTitle: packageData.currentStatusTitle,
+          originCity: packageData.origin.city,
+          destCity: packageData.destination.city,
+          lastChecked: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isDelivered: packageData.isDelivered,
+        };
+        return [newEntry, ...prev];
+      }
+    });
+  }, [packageData]);
 
   const isCurrentPackageSaved = Boolean(
     packageData && savedPackages.some((p) => p.trackingNumber === packageData.trackingNumber)
   );
 
-  const handleImportComplete = (customData: PackageData) => {
+  const handleImportComplete = useCallback((customData: PackageData) => {
     setPackageData(customData);
     setActiveTrackingNum(customData.trackingNumber);
     setActiveCheckpointId(undefined);
-  };
+  }, []);
 
-  const handleSelectCheckpoint = (id: string) => {
+  const handleSelectCheckpoint = useCallback((id: string) => {
     setActiveCheckpointId((prev) => (prev === id ? undefined : id));
-  };
+  }, []);
+
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
