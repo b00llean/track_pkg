@@ -163,9 +163,9 @@ export async function fetchLivePackageTracking(
 
   const carrierMap: Record<string, number> = {
     usps: 21051,
-    fedex: 100001,
-    ups: 100003,
-    dhl: 100002,
+    fedex: 100003,
+    ups: 100002,
+    dhl: 100001,
   };
   const carrierCode17 = carrierMap[detectedCarrierId];
 
@@ -186,9 +186,13 @@ export async function fetchLivePackageTracking(
 
   // Check if item needs to be registered first on 17TRACK
   let trackItem = json.data?.accepted?.[0] || json.data?.items?.[0];
-  const notFoundInAccepted = !trackItem || (json.data?.rejected && json.data.rejected.length > 0);
+  let trackDetails = trackItem?.track_info || trackItem?.track || {};
+  let providers = trackDetails.tracking?.providers || [];
+  let hasEvents = providers.some((p: any) => p.events && p.events.length > 0) || Boolean(trackDetails.z1?.length || trackDetails.z0?.length || trackDetails.events?.length);
 
-  if (notFoundInAccepted || !trackItem?.track) {
+  const notFoundInAccepted = !trackItem || !hasEvents || (json.data?.rejected && json.data.rejected.length > 0);
+
+  if (notFoundInAccepted) {
     // Automatically Register tracking number on 17TRACK
     try {
       const regPayload = carrierCode17 ? [{ number: cleanNum, carrier: carrierCode17 }] : [{ number: cleanNum }];
@@ -228,6 +232,28 @@ export async function fetchLivePackageTracking(
     }
   }
 
+  // Fallback: If query with carrier code returned no events, try querying without specified carrier code (auto-detect)
+  if (trackItem) {
+    trackDetails = trackItem.track_info || trackItem.track || {};
+    providers = trackDetails.tracking?.providers || [];
+    hasEvents = providers.some((p: any) => p.events && p.events.length > 0) || Boolean(trackDetails.z1?.length || trackDetails.z0?.length || trackDetails.events?.length);
+
+    if (!hasEvents && carrierCode17) {
+      try {
+        const fallbackResponse = await post17TrackApi('/track/v2.2/gettrackinfo', apiKey, [{ number: cleanNum }]);
+        if (fallbackResponse.ok) {
+          const fallbackJson = await fallbackResponse.json();
+          const fallbackItem = fallbackJson.data?.accepted?.[0] || fallbackJson.data?.items?.[0];
+          if (fallbackItem) {
+            trackItem = fallbackItem;
+          }
+        }
+      } catch (fbErr) {
+        console.warn('Fallback auto-detect query notice:', fbErr);
+      }
+    }
+  }
+
   if (!trackItem) {
     const rejectedItem = json.data?.rejected?.[0];
     if (rejectedItem && rejectedItem.error) {
@@ -245,9 +271,10 @@ export async function fetchLivePackageTracking(
     );
   }
 
-  const trackDetails = trackItem.track_info || trackItem.track || {};
-  const provider = trackDetails.tracking?.providers?.[0];
-  const events = provider?.events || trackDetails.z1 || trackDetails.z0 || trackDetails.events || [];
+  trackDetails = trackItem.track_info || trackItem.track || {};
+  providers = trackDetails.tracking?.providers || [];
+  const providerWithEvents = providers.find((p: any) => p.events && p.events.length > 0) || providers[0];
+  const events = providerWithEvents?.events || trackDetails.z1 || trackDetails.z0 || trackDetails.events || [];
 
   const shippingInfo = trackDetails.shipping_info || {};
   const shipperCity = shippingInfo.shipper_address?.city ? `${shippingInfo.shipper_address.city}, ${shippingInfo.shipper_address.state || ''}` : null;
