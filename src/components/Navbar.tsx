@@ -19,7 +19,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   return (
     <header className="sticky top-0 z-30 glass-panel border-b border-slate-800/80 px-4 lg:px-8 py-3.5 transition-all">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <div className="max-w-[1650px] mx-auto flex items-center justify-between">
         
         {/* Brand Logo & Name */}
         <div className="flex items-center gap-3">
@@ -46,33 +46,25 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Action Controls */}
         <div className="flex items-center gap-2 text-xs">
           
-          {/* Live API Status Badge */}
+          {/* Consolidated Single API Settings & Status Control */}
           <button
             onClick={onOpenSettings}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-semibold border transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl font-semibold border transition-all cursor-pointer ${
               hasApiKey
-                ? 'bg-emerald-950/50 text-emerald-400 border-emerald-500/40 hover:bg-emerald-900/50'
-                : 'bg-amber-950/40 text-amber-400 border-amber-500/30 hover:bg-amber-900/40'
+                ? 'bg-emerald-950/50 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/60'
+                : 'bg-amber-950/50 text-amber-300 border-amber-500/40 hover:bg-amber-900/60 animate-pulse'
             }`}
             title="Configure 17TRACK Live API Settings"
           >
-            <Globe className="w-3.5 h-3.5" />
-            <span>{hasApiKey ? 'Live API Active' : 'Set 17TRACK Key'}</span>
-          </button>
-
-          {/* Settings Modal Button */}
-          <button
-            onClick={onOpenSettings}
-            className="p-2 rounded-xl text-slate-300 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 transition-all cursor-pointer hover:text-white"
-            title="17TRACK API Settings"
-          >
             <Settings className="w-4 h-4 text-slate-300" />
+            <span className="hidden sm:inline">{hasApiKey ? 'Live API Active' : 'Set 17TRACK Key'}</span>
+            <span className={`w-2 h-2 rounded-full ${hasApiKey ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
           </button>
 
           {/* Import Text Button */}
           <button
             onClick={onOpenImportModal}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer"
             title="Import Raw Tracking Text"
           >
             <FilePlus className="w-4 h-4 text-indigo-400" />

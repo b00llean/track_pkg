@@ -12,8 +12,9 @@ import {
   MapPin,
   ArrowDown,
 } from 'lucide-react';
-import { Checkpoint, StatusCategory, LocationGroup } from '../types/tracking';
+import { Checkpoint, StatusCategory } from '../types/tracking';
 import { groupCheckpointsByLocation } from '../utils/grouping';
+import { calculateTransitDuration } from '../utils/dateUtils';
 
 interface JourneyTimelineProps {
   checkpoints: Checkpoint[];
@@ -51,43 +52,7 @@ const getStatusBadge = (status: StatusCategory) => {
   }
 };
 
-function calculateTransitTimeBetweenGroups(laterGroup: LocationGroup, earlierGroup: LocationGroup): string {
-  try {
-    const depTimeStr = earlierGroup.latestCheckpoint.timestamp;
-    const arrTimeStr = laterGroup.checkpoints[0].timestamp;
 
-    const parseTs = (s: string) => {
-      const cleaned = s.replace('-', '').trim();
-      const d = new Date(cleaned);
-      return isNaN(d.getTime()) ? null : d.getTime();
-    };
-
-    const ms1 = parseTs(depTimeStr);
-    const ms2 = parseTs(arrTimeStr);
-
-    if (ms1 && ms2) {
-      const diffMs = Math.abs(ms2 - ms1);
-      const totalMins = Math.floor(diffMs / (1000 * 60));
-      const hours = Math.floor(totalMins / 60);
-      const mins = totalMins % 60;
-      const days = Math.floor(hours / 24);
-
-      if (days > 0) {
-        const remHours = hours % 24;
-        return remHours > 0 ? `${days}d ${remHours}h transit` : `${days}d transit`;
-      } else if (hours > 0 && mins > 0) {
-        return `${hours}h ${mins}m transit`;
-      } else if (hours > 0) {
-        return `${hours}h transit`;
-      } else if (mins > 0) {
-        return `${mins}m transit`;
-      }
-    }
-  } catch (e) {
-    console.warn('Duration parse error:', e);
-  }
-  return 'In transit';
-}
 
 export const JourneyTimeline: React.FC<JourneyTimelineProps> = ({
   checkpoints,
@@ -318,9 +283,9 @@ export const JourneyTimeline: React.FC<JourneyTimelineProps> = ({
                   <div className="relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-indigo-500/40 text-[11px] font-mono font-bold text-indigo-300 shadow-xl backdrop-blur-md">
                     <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                     <span>
-                      {calculateTransitTimeBetweenGroups(
-                        group,
-                        reversedGroups[groupIdx + 1]
+                      {calculateTransitDuration(
+                        reversedGroups[groupIdx + 1].latestCheckpoint.timestamp,
+                        group.checkpoints[0].timestamp
                       )}
                     </span>
                     <ArrowDown className="w-3 h-3 text-indigo-400 shrink-0" />

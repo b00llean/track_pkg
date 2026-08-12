@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ArrowRight, Key, Check } from 'lucide-react';
+import { Search, ArrowRight } from 'lucide-react';
 import { detectCarrier } from '../services/carrierDetector';
 import { CarrierInfo } from '../types/tracking';
-import { getApiSettings, saveApiSettings } from '../services/liveTrackingService';
 
 interface TrackingSearchProps {
   onSearch: (trackingNumber: string) => void;
@@ -15,26 +14,13 @@ export const TrackingSearch: React.FC<TrackingSearchProps> = ({
   onSearch,
   isLoading,
   activeTrackingNum = '',
-  onKeyUpdated,
 }) => {
   const [inputVal, setInputVal] = useState(activeTrackingNum);
   const [detectedCarrier, setDetectedCarrier] = useState<CarrierInfo>(detectCarrier(activeTrackingNum));
-  const [apiSettings, setApiSettings] = useState(() => getApiSettings());
-  const [keyInput, setKeyInput] = useState(apiSettings.apiKey || '');
-  const [keySaved, setKeySaved] = useState(false);
-
-  useEffect(() => {
-    const latest = getApiSettings();
-    setApiSettings(latest);
-    if (latest.apiKey) {
-      setKeyInput(latest.apiKey);
-    }
-  }, []);
 
   useEffect(() => {
     setDetectedCarrier(detectCarrier(inputVal));
   }, [inputVal]);
-
 
   // Handle search submit, trimming whitespace and guarding against double submissions while loading
   const handleSubmit = (e: React.FormEvent) => {
@@ -45,50 +31,8 @@ export const TrackingSearch: React.FC<TrackingSearchProps> = ({
     }
   };
 
-  const handleSaveKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (keyInput.trim()) {
-      const updated = { ...apiSettings, apiKey: keyInput.trim(), mode: 'live' as const, provider: '17track' as const };
-      saveApiSettings(updated);
-      setApiSettings(updated);
-      setKeySaved(true);
-      if (onKeyUpdated) onKeyUpdated();
-      setTimeout(() => setKeySaved(false), 2000);
-    }
-  };
-
   return (
-    <div className="w-full max-w-4xl mx-auto mb-6 space-y-4">
-      {/* Inline 17TRACK Key Prompt Banner if key is missing */}
-      {!apiSettings.apiKey && (
-        <form onSubmit={handleSaveKey} className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/30 text-amber-200 text-sm flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in duration-200 shadow-xl">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
-              <Key className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="font-semibold text-amber-100">17TRACK API Key (17token) Required for Live Tracking</p>
-              <p className="text-xs text-amber-300/80">Enter your 17TRACK key to enable 100% live package tracking</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <input
-              type="password"
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
-              placeholder="Paste your 17token key..."
-              className="w-full sm:w-64 bg-slate-900 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-white placeholder-amber-400/50 font-mono outline-none focus:ring-2 focus:ring-amber-500"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs transition-all shrink-0 cursor-pointer flex items-center gap-1"
-            >
-              {keySaved ? <Check className="w-4 h-4" /> : 'Save Key'}
-            </button>
-          </div>
-        </form>
-      )}
-
+    <div className="w-full max-w-5xl mx-auto mb-6 space-y-3">
       {/* Main Search Input Form */}
       <form onSubmit={handleSubmit} className="relative group">
         {/* Glowing Input Frame */}
@@ -135,6 +79,41 @@ export const TrackingSearch: React.FC<TrackingSearchProps> = ({
           </button>
         </div>
       </form>
+
+      {/* Quick Sample Tracking Presets */}
+      <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-slate-400">
+        <span className="text-slate-500 font-medium">Quick Demo Samples:</span>
+        <button
+          type="button"
+          onClick={() => {
+            setInputVal('875278203409');
+            onSearch('875278203409');
+          }}
+          className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer font-mono text-[11px]"
+        >
+          📦 FedEx (875278203409)
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setInputVal('1Z9999999999999999');
+            onSearch('1Z9999999999999999');
+          }}
+          className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer font-mono text-[11px]"
+        >
+          🚚 UPS Sample
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setInputVal('9400100000000000000000');
+            onSearch('9400100000000000000000');
+          }}
+          className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer font-mono text-[11px]"
+        >
+          📬 USPS Sample
+        </button>
+      </div>
     </div>
   );
 };

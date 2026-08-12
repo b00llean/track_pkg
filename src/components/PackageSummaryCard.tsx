@@ -98,16 +98,16 @@ export const PackageSummaryCard: React.FC<PackageSummaryCardProps> = ({
         </div>
       </div>
 
-      {/* Main Status & ETA Banner */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Main Status, ETA, & Specs Banner */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         
         {/* Status Title Box */}
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
           <span className="text-xs text-slate-400 uppercase font-semibold tracking-wider">Current Status</span>
-          <h3 className="font-heading font-extrabold text-xl text-white flex items-center gap-2">
+          <h3 className="font-heading font-extrabold text-lg text-white flex items-center gap-2">
             <span>{currentStatusTitle}</span>
           </h3>
-          <p className="text-xs text-slate-300">{packageData.statusMessage}</p>
+          <p className="text-xs text-slate-300 truncate">{packageData.statusMessage}</p>
         </div>
 
         {/* Estimated Delivery Box */}
@@ -115,17 +115,35 @@ export const PackageSummaryCard: React.FC<PackageSummaryCardProps> = ({
           <span className="text-xs text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
             <Calendar className="w-3.5 h-3.5 text-indigo-400" /> Estimated Delivery Window
           </span>
-          <h3 className="font-heading font-extrabold text-xl text-indigo-300">
+          <h3 className="font-heading font-extrabold text-lg text-indigo-300">
             {estimatedDelivery}
           </h3>
           <span className="text-xs text-slate-400">On schedule for delivery</span>
         </div>
+
+        {/* Specs & Info Box */}
+        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2.5 flex flex-col justify-between">
+          <span className="text-xs text-slate-400 uppercase font-semibold tracking-wider">Shipment Specs</span>
+          <div className="flex items-center gap-4 text-xs text-slate-300">
+            {weight && (
+              <span className="flex items-center gap-1.5 font-medium bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
+                <Weight className="w-3.5 h-3.5 text-indigo-400" /> {weight}
+              </span>
+            )}
+            {pieces && (
+              <span className="flex items-center gap-1.5 font-medium bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
+                <Layers className="w-3.5 h-3.5 text-indigo-400" /> {pieces} {pieces > 1 ? 'Pieces' : 'Piece'}
+              </span>
+            )}
+          </div>
+        </div>
+
       </div>
 
       {/* Journey Progress Bar */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs font-medium">
-          <span className="text-slate-400">Transit Completion</span>
+          <span className="text-slate-400">Transit Completion Progress</span>
           <span className="text-indigo-400 font-bold font-mono">{progressPercent}%</span>
         </div>
         <div className="w-full h-2.5 rounded-full bg-slate-800 overflow-hidden p-0.5 border border-slate-700/50">
@@ -137,52 +155,37 @@ export const PackageSummaryCard: React.FC<PackageSummaryCardProps> = ({
       </div>
 
       {/* Origin -> Destination Route Details */}
-      <div className="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+      <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
         
         {/* Origin */}
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-slate-800 text-slate-300">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700/60">
             <MapPin className="w-4 h-4 text-slate-400" />
           </div>
           <div>
-            <span className="text-[10px] text-slate-400 font-semibold uppercase">Shipped From</span>
-            <p className="font-semibold text-white">{origin.city}, {origin.stateCountry}</p>
+            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Shipped From</span>
+            <p className="font-semibold text-white text-sm">{origin.city}{origin.stateCountry ? `, ${origin.stateCountry}` : ''}</p>
           </div>
         </div>
 
         {/* Route Arrow Indicator */}
-        <div className="hidden sm:flex items-center gap-2 text-slate-600">
-          <div className="w-12 h-0.5 bg-gradient-to-r from-slate-700 to-indigo-500/50 rounded-full"></div>
-          <ArrowRight className="w-4 h-4 text-indigo-400" />
-          <div className="w-12 h-0.5 bg-gradient-to-r from-indigo-500/50 to-emerald-500/50 rounded-full"></div>
+        <div className="hidden sm:flex items-center gap-3 text-slate-600 flex-1 px-4 justify-center">
+          <div className="flex-1 h-0.5 bg-gradient-to-r from-slate-700 via-indigo-500/50 to-emerald-500/50 rounded-full"></div>
+          <ArrowRight className="w-4 h-4 text-indigo-400 shrink-0" />
+          <div className="flex-1 h-0.5 bg-gradient-to-r from-emerald-500/50 via-indigo-500/50 to-slate-700 rounded-full"></div>
         </div>
 
         {/* Destination */}
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-400">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/30 text-emerald-400">
             <MapPin className="w-4 h-4 text-emerald-400" />
           </div>
           <div>
-            <span className="text-[10px] text-slate-400 font-semibold uppercase">Destination</span>
-            <p className="font-semibold text-white">{destination.city}, {destination.stateCountry}</p>
+            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Destination</span>
+            <p className="font-semibold text-white text-sm">{destination.city}{destination.stateCountry ? `, ${destination.stateCountry}` : ''}</p>
           </div>
         </div>
 
-        {/* Extra Specs */}
-        {(weight || pieces) && (
-          <div className="flex items-center gap-3 pl-4 border-l border-slate-800 text-slate-400">
-            {weight && (
-              <span className="flex items-center gap-1" title="Package Weight">
-                <Weight className="w-3.5 h-3.5 text-slate-500" /> {weight}
-              </span>
-            )}
-            {pieces && (
-              <span className="flex items-center gap-1" title="Piece Count">
-                <Layers className="w-3.5 h-3.5 text-slate-500" /> {pieces} {pieces > 1 ? 'Pieces' : 'Piece'}
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
     </div>

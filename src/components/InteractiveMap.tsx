@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap } fro
 import L from 'leaflet';
 import { PackageData, LocationGroup } from '../types/tracking';
 import { groupCheckpointsByLocation } from '../utils/grouping';
+import { calculateTransitDuration } from '../utils/dateUtils';
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -164,36 +165,7 @@ const createTransitTimeIcon = (durationText: string) => {
   });
 };
 
-function calculateTransitDuration(ts1: string, ts2: string): string {
-  try {
-    const parseTs = (s: string) => {
-      const cleaned = s.replace('-', '').trim();
-      const d = new Date(cleaned);
-      return isNaN(d.getTime()) ? null : d.getTime();
-    };
 
-    const ms1 = parseTs(ts1);
-    const ms2 = parseTs(ts2);
-
-    if (ms1 && ms2) {
-      const diffMs = Math.abs(ms2 - ms1);
-      const totalMins = Math.floor(diffMs / (1000 * 60));
-      const hours = Math.floor(totalMins / 60);
-      const mins = totalMins % 60;
-
-      if (hours > 0 && mins > 0) {
-        return `${hours}h ${mins}m transit`;
-      } else if (hours > 0) {
-        return `${hours}h transit`;
-      } else {
-        return `${mins}m transit`;
-      }
-    }
-  } catch (e) {
-    console.warn('Duration parse error', e);
-  }
-  return 'In transit';
-}
 
 export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   packageData,
@@ -247,7 +219,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   }, [groups]);
 
   return (
-    <div className="relative w-full h-[480px] lg:h-[560px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950">
+    <div className="relative w-full h-[540px] lg:h-[640px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950">
       
       {/* Map Legend & Stats Overlay */}
       <div className="absolute top-4 left-4 z-20 glass-panel px-3.5 py-2.5 rounded-xl border border-slate-800/80 shadow-xl flex items-center gap-3">

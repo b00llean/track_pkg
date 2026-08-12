@@ -133,15 +133,15 @@ export const App: React.FC = () => {
       />
 
       {/* Main Content Workspace Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-8 space-y-6">
+      <main className="flex-1 max-w-[1650px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-6 space-y-6">
         
-        {/* Search Hero Header */}
-        <div className="text-center space-y-2 mb-4">
-          <h2 className="font-heading font-extrabold text-3xl sm:text-4xl text-white tracking-tight">
+        {/* Compact Search Hero Header */}
+        <div className="text-center space-y-1 mb-3">
+          <h2 className="font-heading font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
             Geospatial Multi-Carrier Package Journey
           </h2>
-          <p className="text-sm text-slate-400 max-w-xl mx-auto">
-            Input any FedEx, UPS, USPS, or DHL live tracking number to view real-time geospatial routes, milestone timelines, and hub weather alerts.
+          <p className="text-xs text-slate-400 max-w-xl mx-auto">
+            Track FedEx, UPS, USPS & DHL live packages with real-time geospatial Leaflet maps and checkpoint timelines.
           </p>
         </div>
 
