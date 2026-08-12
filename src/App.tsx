@@ -10,7 +10,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { fetchPackageTracking } from './services/trackingService';
 import { getApiSettings, saveApiSettings } from './services/liveTrackingService';
 import { PackageData, SavedPackage, TrackingApiSettings } from './types/tracking';
-import { AlertCircle, MapPin, RefreshCw, Compass } from 'lucide-react';
+import { AlertCircle, MapPin, RefreshCw, Compass, ExternalLink, FilePlus } from 'lucide-react';
 
 const STORAGE_KEY = 'track_pkg_saved_history_v1';
 
@@ -160,17 +160,42 @@ export const App: React.FC = () => {
 
         {/* Error Notification */}
         {errorMsg && (
-          <div className="max-w-4xl mx-auto p-4 rounded-xl bg-rose-950/60 border border-rose-500/40 flex items-center justify-between text-rose-200 text-sm">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-rose-400" />
-              <span>{errorMsg}</span>
+          <div className="max-w-4xl mx-auto p-4 sm:p-5 rounded-2xl bg-rose-950/70 border border-rose-500/40 text-rose-200 text-sm space-y-3 shadow-2xl animate-in fade-in">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <div className="space-y-1 flex-1">
+                <h4 className="font-bold text-rose-100">Tracking Query Status</h4>
+                <p className="text-xs text-rose-200/90 leading-relaxed">{errorMsg}</p>
+              </div>
             </div>
-            <button
-              onClick={() => handleTrack(activeTrackingNum)}
-              className="px-3 py-1 rounded-lg bg-rose-900 hover:bg-rose-800 text-white font-medium text-xs flex items-center gap-1 cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Retry
-            </button>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-rose-900/60 text-xs">
+              {activeTrackingNum && (
+                <a
+                  href={`https://tools.usps.com/go/TrackConfirmAction?tLabels=${activeTrackingNum}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-rose-200 border border-rose-500/30 transition-all flex items-center gap-1.5 font-medium cursor-pointer"
+                >
+                  <span>Track on USPS Official Site</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+              <button
+                onClick={() => setIsImportOpen(true)}
+                className="px-3.5 py-1.5 rounded-xl bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/40 transition-all flex items-center gap-1.5 font-semibold cursor-pointer"
+              >
+                <FilePlus className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Import Tracking Text</span>
+              </button>
+              <button
+                onClick={() => handleTrack(activeTrackingNum)}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-900 hover:bg-rose-800 text-white font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Retry</span>
+              </button>
+            </div>
           </div>
         )}
 

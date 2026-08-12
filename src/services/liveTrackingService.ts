@@ -161,8 +161,17 @@ export async function fetchLivePackageTracking(
 
   const detectedCarrierId = detectCarrier(cleanNum).id;
 
+  const carrierMap: Record<string, number> = {
+    usps: 21051,
+    fedex: 100001,
+    ups: 100003,
+    dhl: 100002,
+  };
+  const carrierCode17 = carrierMap[detectedCarrierId];
+
   // Step 1: Query 17TRACK /gettrackinfo API endpoint
-  let response = await post17TrackApi('/track/v2.2/gettrackinfo', apiKey, [{ number: cleanNum }]);
+  const queryPayload = carrierCode17 ? [{ number: cleanNum, carrier: carrierCode17 }] : [{ number: cleanNum }];
+  let response = await post17TrackApi('/track/v2.2/gettrackinfo', apiKey, queryPayload);
 
   if (!response.ok) {
     throw new Error(`17TRACK API HTTP Error ${response.status}: ${response.statusText}`);
@@ -182,27 +191,58 @@ export async function fetchLivePackageTracking(
   if (notFoundInAccepted || !trackItem?.track) {
     // Automatically Register tracking number on 17TRACK
     try {
-      const regResponse = await post17TrackApi('/track/v2.2/register', apiKey, [{ number: cleanNum }]);
+      const regPayload = carrierCode17 ? [{ number: cleanNum, carrier: carrierCode17 }] : [{ number: cleanNum }];
+      const regResponse = await post17TrackApi('/track/v2.2/register', apiKey, regPayload);
 
       if (regResponse.ok) {
+        const regJson = await regResponse.json();
+        const rejection = regJson.data?.rejected?.[0];
+        
+        if (rejection && rejection.error) {
+          const errCode = rejection.error.code;
+          const errMsg = rejection.error.message || '';
+          
+          if (errCode === -18019823 || errMsg.toLowerCase().includes('usps') || errMsg.toLowerCase().includes('policy restrictions')) {
+            throw new Error(
+              `17TRACK API Policy Restriction for USPS: 17TRACK API (v2.2) restricts automated registration for package ${cleanNum} due to carrier API policy limits. Please check tracking directly on USPS.com or import your tracking text below.`
+            );
+          }
+        }
+
         // Wait briefly for 17TRACK network sync
         await new Promise((r) => setTimeout(r, 1200));
 
         // Re-query /gettrackinfo
-        const retryResponse = await post17TrackApi('/track/v2.2/gettrackinfo', apiKey, [{ number: cleanNum }]);
+        const retryResponse = await post17TrackApi('/track/v2.2/gettrackinfo', apiKey, queryPayload);
 
         if (retryResponse.ok) {
           json = await retryResponse.json();
           trackItem = json.data?.accepted?.[0] || json.data?.items?.[0];
         }
       }
-    } catch (regErr) {
+    } catch (regErr: any) {
+      if (regErr.message && regErr.message.includes('17TRACK API Policy Restriction')) {
+        throw regErr;
+      }
       console.warn('17TRACK registration attempt notice:', regErr);
     }
   }
 
   if (!trackItem) {
-    throw new Error(`Package ${cleanNum} not found or not yet scanned by carrier. Please verify the tracking number.`);
+    const rejectedItem = json.data?.rejected?.[0];
+    if (rejectedItem && rejectedItem.error) {
+      const errCode = rejectedItem.error.code;
+      const errMsg = rejectedItem.error.message || '';
+      if (errCode === -18019823 || errMsg.toLowerCase().includes('usps') || errMsg.toLowerCase().includes('policy restrictions')) {
+        throw new Error(
+          `17TRACK API Policy Restriction for USPS: 17TRACK API (v2.2) restricts automated registration for package ${cleanNum} due to carrier API policy limits. Please check tracking directly on USPS.com or import your tracking text below.`
+        );
+      }
+    }
+
+    throw new Error(
+      `Package ${cleanNum} was not found on 17TRACK or has not yet been scanned by carrier. Please verify the tracking number.`
+    );
   }
 
   const trackDetails = trackItem.track_info || trackItem.track || {};
