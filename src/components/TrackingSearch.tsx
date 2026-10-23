@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Search, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Search, ArrowRight, History } from 'lucide-react';
 import { detectCarrier } from '../services/carrierDetector';
-import { CarrierInfo } from '../types/tracking';
+import { CarrierInfo, RecentTrackedPackage } from '../types/tracking';
 
 interface TrackingSearchProps {
   onSearch: (trackingNumber: string) => void;
   isLoading: boolean;
   activeTrackingNum?: string;
+  recentPackages?: RecentTrackedPackage[];
   onKeyUpdated?: () => void;
 }
 
@@ -14,13 +15,23 @@ export const TrackingSearch: React.FC<TrackingSearchProps> = ({
   onSearch,
   isLoading,
   activeTrackingNum = '',
+  recentPackages = [],
 }) => {
   const [inputVal, setInputVal] = useState(activeTrackingNum);
   const [detectedCarrier, setDetectedCarrier] = useState<CarrierInfo>(detectCarrier(activeTrackingNum));
 
   useEffect(() => {
+    setInputVal(activeTrackingNum);
+  }, [activeTrackingNum]);
+
+  useEffect(() => {
     setDetectedCarrier(detectCarrier(inputVal));
   }, [inputVal]);
+
+  // Take the 3 most recent user searches (sorted most recent at index 0 on left)
+  const displayPackages = useMemo(() => {
+    return (recentPackages || []).slice(0, 3);
+  }, [recentPackages]);
 
   // Handle search submit, trimming whitespace and guarding against double submissions while loading
   const handleSubmit = (e: React.FormEvent) => {
@@ -80,40 +91,45 @@ export const TrackingSearch: React.FC<TrackingSearchProps> = ({
         </div>
       </form>
 
-      {/* Quick Sample Tracking Presets */}
-      <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-slate-400">
-        <span className="text-slate-500 font-medium">Quick Demo Samples:</span>
-        <button
-          type="button"
-          onClick={() => {
-            setInputVal('875278203409');
-            onSearch('875278203409');
-          }}
-          className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer font-mono text-[11px]"
-        >
-          📦 FedEx (875278203409)
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setInputVal('1Z9999999999999999');
-            onSearch('1Z9999999999999999');
-          }}
-          className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer font-mono text-[11px]"
-        >
-          🚚 UPS Sample
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setInputVal('9400100000000000000000');
-            onSearch('9400100000000000000000');
-          }}
-          className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer font-mono text-[11px]"
-        >
-          📬 USPS Sample
-        </button>
-      </div>
+      {/* Recently Tracked Packages (only shown if user has recent searches) */}
+      {displayPackages.length > 0 && (
+        <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-slate-400 animate-in fade-in duration-200">
+          <div className="flex items-center gap-1.5 text-slate-400 font-medium mr-1">
+            <History className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Recently Tracked:</span>
+          </div>
+          {displayPackages.map((pkg) => {
+            const isActive =
+              activeTrackingNum.trim().toUpperCase() === pkg.trackingNumber.trim().toUpperCase();
+            return (
+              <button
+                key={pkg.trackingNumber}
+                type="button"
+                onClick={() => {
+                  setInputVal(pkg.trackingNumber);
+                  onSearch(pkg.trackingNumber);
+                }}
+                title={`Track ${pkg.carrierName} package ${pkg.trackingNumber}`}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer shadow-sm ${
+                  isActive
+                    ? 'bg-indigo-950/80 border-indigo-500/70 text-indigo-200 shadow-indigo-500/20 ring-1 ring-indigo-500/40'
+                    : 'bg-slate-900/90 hover:bg-slate-800 border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white'
+                }`}
+              >
+                <span className="text-sm">{pkg.logoIcon}</span>
+                <span className="font-semibold text-slate-200">{pkg.carrierName}</span>
+                <span className="text-slate-600">·</span>
+                <span className="hidden sm:inline font-mono">{pkg.trackingNumber}</span>
+                <span className="sm:hidden font-mono">
+                  {pkg.trackingNumber.length > 12
+                    ? `${pkg.trackingNumber.slice(0, 4)}...${pkg.trackingNumber.slice(-4)}`
+                    : pkg.trackingNumber}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

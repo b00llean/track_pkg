@@ -9,15 +9,53 @@ import { ImportTrackingModal } from './components/ImportTrackingModal';
 import { SettingsModal } from './components/SettingsModal';
 import { fetchPackageTracking } from './services/trackingService';
 import { getApiSettings, saveApiSettings } from './services/liveTrackingService';
-import { PackageData, SavedPackage, TrackingApiSettings } from './types/tracking';
+import { detectCarrier } from './services/carrierDetector';
+import { PackageData, SavedPackage, TrackingApiSettings, RecentTrackedPackage } from './types/tracking';
 import { AlertCircle, MapPin, RefreshCw, Compass, ExternalLink, FilePlus } from 'lucide-react';
 
 const STORAGE_KEY = 'track_pkg_saved_history_v1';
+const RECENT_STORAGE_KEY = 'track_pkg_recent_history_v1';
 
 export const App: React.FC = () => {
-  const [activeTrackingNum, setActiveTrackingNum] = useState<string>('875278203409');
+  // Recently Tracked Packages State (from actual user searches only)
+  const [recentPackages, setRecentPackages] = useState<RecentTrackedPackage[]>(() => {
+    try {
+      const stored = localStorage.getItem(RECENT_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return [];
+  });
+
+  const [activeTrackingNum, setActiveTrackingNum] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem(RECENT_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.trackingNumber) {
+          return parsed[0].trackingNumber;
+        }
+      }
+    } catch {}
+    return '';
+  });
   const [packageData, setPackageData] = useState<PackageData | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem(RECENT_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.trackingNumber) {
+          return true;
+        }
+      }
+    } catch {}
+    return false;
+  });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeCheckpointId, setActiveCheckpointId] = useState<string | undefined>();
 
@@ -25,6 +63,34 @@ export const App: React.FC = () => {
   const [apiSettings, setApiSettings] = useState<TrackingApiSettings>(() => getApiSettings());
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(recentPackages));
+    } catch (e) {
+      console.warn('Could not save recent packages to localStorage', e);
+    }
+  }, [recentPackages]);
+
+  const recordRecentTracked = useCallback(
+    (num: string, carrierName?: string, logoIcon?: string, carrierId?: any) => {
+      const cleanNum = num.trim().toUpperCase().replace(/\s+/g, '');
+      if (!cleanNum) return;
+
+      const detected = detectCarrier(cleanNum);
+      const newEntry: RecentTrackedPackage = {
+        trackingNumber: cleanNum,
+        carrierId: carrierId || detected.id,
+        carrierName: carrierName || detected.name,
+        logoIcon: logoIcon || detected.logoIcon,
+      };
+
+      setRecentPackages((prev) => {
+        const filtered = prev.filter((p) => p.trackingNumber.toUpperCase() !== cleanNum);
+        return [newEntry, ...filtered].slice(0, 10);
+      });
+    },
+    []
+  );
 
   // Modals state
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
@@ -50,21 +116,24 @@ export const App: React.FC = () => {
   // Load package data on initial mount or when tracking number changes
   const handleTrack = useCallback(async (num: string) => {
     if (!num.trim()) return;
+    const cleanNum = num.trim().toUpperCase().replace(/\s+/g, '');
     setIsLoading(true);
     setErrorMsg(null);
-    setActiveTrackingNum(num);
+    setActiveTrackingNum(cleanNum);
     setActiveCheckpointId(undefined);
+    recordRecentTracked(cleanNum);
 
     try {
-      const data = await fetchPackageTracking(num);
+      const data = await fetchPackageTracking(cleanNum);
       setPackageData(data);
+      recordRecentTracked(cleanNum, data.carrier.name, data.carrier.logoIcon, data.carrier.id);
     } catch (err: any) {
       console.error('Tracking fetch error:', err);
       setErrorMsg(err.message || 'Unable to retrieve tracking details for this carrier number.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [recordRecentTracked]);
 
   useEffect(() => {
     if (apiSettings.apiKey && activeTrackingNum) {
@@ -109,11 +178,20 @@ export const App: React.FC = () => {
     packageData && savedPackages.some((p) => p.trackingNumber === packageData.trackingNumber)
   );
 
-  const handleImportComplete = useCallback((customData: PackageData) => {
-    setPackageData(customData);
-    setActiveTrackingNum(customData.trackingNumber);
-    setActiveCheckpointId(undefined);
-  }, []);
+  const handleImportComplete = useCallback(
+    (customData: PackageData) => {
+      setPackageData(customData);
+      setActiveTrackingNum(customData.trackingNumber);
+      setActiveCheckpointId(undefined);
+      recordRecentTracked(
+        customData.trackingNumber,
+        customData.carrier.name,
+        customData.carrier.logoIcon,
+        customData.carrier.id
+      );
+    },
+    [recordRecentTracked]
+  );
 
   const handleSelectCheckpoint = useCallback((id: string) => {
     setActiveCheckpointId((prev) => (prev === id ? undefined : id));
@@ -150,6 +228,7 @@ export const App: React.FC = () => {
           onSearch={handleTrack}
           isLoading={isLoading}
           activeTrackingNum={activeTrackingNum}
+          recentPackages={recentPackages}
           onKeyUpdated={() => {
             const updated = getApiSettings();
             setApiSettings(updated);

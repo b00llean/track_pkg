@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
+import React, { useEffect, useMemo, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 import { PackageData, LocationGroup } from '../types/tracking';
 import { groupCheckpointsByLocation } from '../utils/grouping';
@@ -218,11 +218,14 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     return list;
   }, [groups]);
 
+  const [mapStyle, setMapStyle] = useState<'dark' | 'satellite' | 'streets'>('dark');
+  const cartoApiKey = import.meta.env.VITE_CARTO_API_KEY;
+
   return (
     <div className="relative w-full h-[540px] lg:h-[640px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950">
       
       {/* Map Legend & Stats Overlay */}
-      <div className="absolute top-4 left-4 z-20 glass-panel px-3.5 py-2.5 rounded-xl border border-slate-800/80 shadow-xl flex items-center gap-3">
+      <div className="absolute top-4 left-4 z-20 glass-panel px-3.5 py-2.5 rounded-xl border border-slate-800/80 shadow-xl flex items-center gap-3 pointer-events-none">
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
           <span className="text-xs font-semibold text-white">{carrier.name} Tracking Route</span>
@@ -233,18 +236,103 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         </span>
       </div>
 
+      {/* Map Style Selector Overlay */}
+      <div className="absolute top-4 right-4 z-20 glass-panel p-1 rounded-xl border border-slate-800/80 shadow-xl flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setMapStyle('dark')}
+          className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
+            mapStyle === 'dark'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+          }`}
+          title="Dark Canvas (No API Key Required)"
+        >
+          Dark
+        </button>
+        <button
+          type="button"
+          onClick={() => setMapStyle('satellite')}
+          className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
+            mapStyle === 'satellite'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+          }`}
+          title="Satellite Imagery"
+        >
+          Satellite
+        </button>
+        <button
+          type="button"
+          onClick={() => setMapStyle('streets')}
+          className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
+            mapStyle === 'streets'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+          }`}
+          title="OpenStreetMap Standard"
+        >
+          Streets
+        </button>
+      </div>
+
       <MapContainer
         center={[polylineCoords[0]?.[0] || 39.8283, polylineCoords[0]?.[1] || -98.5795]}
         zoom={5}
         zoomSnap={0.5}
         scrollWheelZoom={true}
+        zoomControl={false}
         className="w-full h-full"
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          maxZoom={19}
-        />
+        <ZoomControl position="bottomright" />
+
+        {/* Base Tile Layer */}
+        {mapStyle === 'dark' && (
+          cartoApiKey ? (
+            <TileLayer
+              key="carto-dark"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url={`https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key=${cartoApiKey}`}
+              maxZoom={19}
+            />
+          ) : (
+            <>
+              <TileLayer
+                key="esri-dark-base"
+                attribution='Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+                maxZoom={19}
+                maxNativeZoom={16}
+              />
+              <TileLayer
+                key="esri-dark-ref"
+                attribution='&copy; Esri'
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
+                maxZoom={19}
+                maxNativeZoom={16}
+              />
+            </>
+          )
+        )}
+
+        {mapStyle === 'satellite' && (
+          <TileLayer
+            key="esri-satellite"
+            attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={19}
+            maxNativeZoom={18}
+          />
+        )}
+
+        {mapStyle === 'streets' && (
+          <TileLayer
+            key="osm-streets"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxZoom={19}
+          />
+        )}
 
         <MapBoundsFitter groups={groups} />
 

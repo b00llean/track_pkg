@@ -96,6 +96,40 @@ export interface SavedPackage {
   isDelivered: boolean;
 }
 
+export interface RecentTrackedPackage {
+  trackingNumber: string;
+  carrierId: CarrierId;
+  carrierName: string;
+  logoIcon: string;
+}
+
+export const DEFAULT_RECENT_PACKAGES: RecentTrackedPackage[] = [
+  {
+    trackingNumber: '1ZWA87086770381418',
+    carrierId: 'ups',
+    carrierName: 'UPS',
+    logoIcon: '🚚',
+  },
+  {
+    trackingNumber: '875278203409',
+    carrierId: 'fedex',
+    carrierName: 'FedEx',
+    logoIcon: '📦',
+  },
+  {
+    trackingNumber: '9400100000000000000000',
+    carrierId: 'usps',
+    carrierName: 'USPS',
+    logoIcon: '📬',
+  },
+  {
+    trackingNumber: '4711928340',
+    carrierId: 'dhl',
+    carrierName: 'DHL Express',
+    logoIcon: '✈️',
+  },
+];
+
 export type ApiProviderId = '17track' | 'ship24' | 'easypost' | 'custom_proxy';
 
 export interface TrackingApiSettings {
