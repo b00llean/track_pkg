@@ -9,6 +9,7 @@ import { ImportTrackingModal } from './components/ImportTrackingModal';
 import { SettingsModal } from './components/SettingsModal';
 import { fetchPackageTracking } from './services/trackingService';
 import { getApiSettings, saveApiSettings } from './services/liveTrackingService';
+import { setCachedPackage } from './services/apiCache';
 import { detectCarrier } from './services/carrierDetector';
 import { PackageData, SavedPackage, TrackingApiSettings, RecentTrackedPackage } from './types/tracking';
 import { AlertCircle, MapPin, RefreshCw, Compass, ExternalLink, FilePlus } from 'lucide-react';
@@ -114,7 +115,7 @@ export const App: React.FC = () => {
   }, [savedPackages]);
 
   // Load package data on initial mount or when tracking number changes
-  const handleTrack = useCallback(async (num: string) => {
+  const handleTrack = useCallback(async (num: string, forceRefresh: boolean = false) => {
     if (!num.trim()) return;
     const cleanNum = num.trim().toUpperCase().replace(/\s+/g, '');
     setIsLoading(true);
@@ -124,7 +125,7 @@ export const App: React.FC = () => {
     recordRecentTracked(cleanNum);
 
     try {
-      const data = await fetchPackageTracking(cleanNum);
+      const data = await fetchPackageTracking(cleanNum, forceRefresh);
       setPackageData(data);
       recordRecentTracked(cleanNum, data.carrier.name, data.carrier.logoIcon, data.carrier.id);
     } catch (err: any) {
@@ -147,7 +148,7 @@ export const App: React.FC = () => {
     saveApiSettings(newSettings);
     setApiSettings(newSettings);
     if (newSettings.apiKey && activeTrackingNum) {
-      handleTrack(activeTrackingNum);
+      handleTrack(activeTrackingNum, true);
     }
   }, [activeTrackingNum, handleTrack]);
 
@@ -189,6 +190,7 @@ export const App: React.FC = () => {
         customData.carrier.logoIcon,
         customData.carrier.id
       );
+      setCachedPackage(customData.trackingNumber, customData);
     },
     [recordRecentTracked]
   );
@@ -232,7 +234,7 @@ export const App: React.FC = () => {
           onKeyUpdated={() => {
             const updated = getApiSettings();
             setApiSettings(updated);
-            if (activeTrackingNum) handleTrack(activeTrackingNum);
+            if (activeTrackingNum) handleTrack(activeTrackingNum, true);
           }}
         />
 
@@ -268,7 +270,7 @@ export const App: React.FC = () => {
                 <span>Import Tracking Text</span>
               </button>
               <button
-                onClick={() => handleTrack(activeTrackingNum)}
+                onClick={() => handleTrack(activeTrackingNum, true)}
                 className="px-3.5 py-1.5 rounded-xl bg-rose-900 hover:bg-rose-800 text-white font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
@@ -287,6 +289,8 @@ export const App: React.FC = () => {
               packageData={packageData}
               onSaveToHistory={toggleSavePackage}
               isSaved={isCurrentPackageSaved}
+              onRefresh={() => handleTrack(packageData.trackingNumber, true)}
+              isRefreshing={isLoading}
             />
 
             {/* Split Grid: Interactive Map + Milestone Timeline */}

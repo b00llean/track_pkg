@@ -152,6 +152,40 @@ const KNOWN_LOGISTICS_HUBS: Record<string, [number, number]> = {
 };
 
 const geocodeCache = new Map<string, [number, number]>();
+const GEOCODE_STORAGE_KEY = 'track_pkg_geocode_cache_v1';
+
+// Initialize geocodeCache from localStorage if available
+try {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const stored = localStorage.getItem(GEOCODE_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === 'object') {
+        for (const [k, v] of Object.entries(parsed)) {
+          if (Array.isArray(v) && v.length === 2) {
+            geocodeCache.set(k, v as [number, number]);
+          }
+        }
+      }
+    }
+  }
+} catch (e) {
+  console.warn('Error reading geocode cache from localStorage:', e);
+}
+
+function persistGeocode(key: string, coords: [number, number]): void {
+  geocodeCache.set(key, coords);
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem(GEOCODE_STORAGE_KEY);
+      const parsed = stored ? JSON.parse(stored) : {};
+      parsed[key] = coords;
+      localStorage.setItem(GEOCODE_STORAGE_KEY, JSON.stringify(parsed));
+    }
+  } catch (e) {
+    console.warn('Error persisting geocode coords:', e);
+  }
+}
 
 /**
  * Clean raw location string into a normalized lookup key
@@ -231,7 +265,7 @@ export async function geocodeLocation(locationStr: string): Promise<[number, num
         const data = await response.json();
         if (data && data.length > 0) {
           const coords: [number, number] = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-          geocodeCache.set(normalized, coords);
+          persistGeocode(normalized, coords);
           return coords;
         }
       }
@@ -244,7 +278,7 @@ export async function geocodeLocation(locationStr: string): Promise<[number, num
   const stateCode = extractStateCode(locationStr);
   if (stateCode && US_STATE_CENTROIDS[stateCode]) {
     const coords = US_STATE_CENTROIDS[stateCode];
-    geocodeCache.set(normalized, coords);
+    persistGeocode(normalized, coords);
     return coords;
   }
 
@@ -256,7 +290,7 @@ export async function geocodeLocation(locationStr: string): Promise<[number, num
   const lat = 33.0 + (Math.abs(hash) % 120) / 10.0;
   const lng = -118.0 + (Math.abs(hash >> 2) % 400) / 10.0;
   const fallbackCoords: [number, number] = [lat, lng];
-  geocodeCache.set(normalized, fallbackCoords);
+  persistGeocode(normalized, fallbackCoords);
   return fallbackCoords;
 }
 

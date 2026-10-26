@@ -1,12 +1,25 @@
 import { PackageData } from '../types/tracking';
 import { fetchLivePackageTracking, getApiSettings } from './liveTrackingService';
+import { getCachedPackage } from './apiCache';
 
 /**
  * Main tracking fetcher function.
- * Processes 100% live package tracking data from carrier APIs.
+ * Processes live package tracking data from carrier APIs with 5-minute caching.
  */
-export async function fetchPackageTracking(trackingNumber: string): Promise<PackageData> {
+export async function fetchPackageTracking(
+  trackingNumber: string,
+  forceRefresh: boolean = false
+): Promise<PackageData> {
   const cleanNum = trackingNumber.trim().toUpperCase().replace(/\s+/g, '');
+
+  // Check 5-minute cache before making any external API calls
+  if (!forceRefresh) {
+    const cached = getCachedPackage(cleanNum);
+    if (cached) {
+      return cached;
+    }
+  }
+
   const apiSettings = getApiSettings();
 
   if (!apiSettings.apiKey) {
@@ -15,5 +28,5 @@ export async function fetchPackageTracking(trackingNumber: string): Promise<Pack
     );
   }
 
-  return await fetchLivePackageTracking(cleanNum, apiSettings);
+  return await fetchLivePackageTracking(cleanNum, apiSettings, { forceRefresh });
 }

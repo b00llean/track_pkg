@@ -1,6 +1,7 @@
 import { Checkpoint, PackageData, StatusCategory, TrackingApiSettings } from '../types/tracking';
 import { CARRIERS, detectCarrier } from './carrierDetector';
 import { geocodeLocation } from './geocoding';
+import { getCachedPackage, setCachedPackage } from './apiCache';
 
 const SETTINGS_STORAGE_KEY = 'track_pkg_api_settings_v1';
 
@@ -149,9 +150,19 @@ export async function post17TrackApi(path: string, apiKey: string, payload: any)
  */
 export async function fetchLivePackageTracking(
   trackingNumber: string,
-  settings: TrackingApiSettings
+  settings: TrackingApiSettings,
+  options: { forceRefresh?: boolean } = {}
 ): Promise<PackageData> {
   const cleanNum = trackingNumber.trim().toUpperCase().replace(/\s+/g, '');
+
+  // Check 5-minute API results cache if forceRefresh is not requested
+  if (!options.forceRefresh) {
+    const cached = getCachedPackage(cleanNum);
+    if (cached) {
+      return cached;
+    }
+  }
+
   const currentSettings = getApiSettings();
   const apiKey = (settings && settings.apiKey && !isPlaceholderKey(settings.apiKey)) ? settings.apiKey : currentSettings.apiKey;
 
@@ -322,7 +333,7 @@ export async function fetchLivePackageTracking(
     const rawPieces = parseInt(miscInfo.pieces || '1', 10);
     const safePieces = isNaN(rawPieces) || rawPieces < 1 ? 1 : rawPieces;
 
-    return {
+    const singleResult: PackageData = {
       trackingNumber: cleanNum,
       carrier: carrierObj,
       origin: { city: shipperCity || 'Origin Hub', stateCountry: 'Origin Location', latitude: locCoords[0], longitude: locCoords[1] },
@@ -339,6 +350,9 @@ export async function fetchLivePackageTracking(
       lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' Live 17TRACK',
       checkpoints: [singleCp],
     };
+
+    setCachedPackage(cleanNum, singleResult);
+    return singleResult;
   }
 
   // Parse raw events array (reverse chronologically if needed so earliest event is index 0)
@@ -418,7 +432,7 @@ export async function fetchLivePackageTracking(
   const rawFinalPieces = parseInt(miscInfo.pieces || '1', 10);
   const safeFinalPieces = isNaN(rawFinalPieces) || rawFinalPieces < 1 ? 1 : rawFinalPieces;
 
-  return {
+  const fullResult: PackageData = {
     trackingNumber: cleanNum,
     carrier: carrierObj,
     origin: {
@@ -445,5 +459,8 @@ export async function fetchLivePackageTracking(
     lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' Live 17TRACK',
     checkpoints: hydratedCheckpoints,
   };
+
+  setCachedPackage(cleanNum, fullResult);
+  return fullResult;
 
 }

@@ -83,6 +83,8 @@ export interface PackageData {
   isDelivered: boolean;
   lastUpdated: string;
   checkpoints: Checkpoint[];
+  isFromCache?: boolean;
+  cachedAt?: number;
 }
 
 export interface SavedPackage {

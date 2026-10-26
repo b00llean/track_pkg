@@ -9,6 +9,8 @@ import {
   Layers,
   Sparkles,
   ArrowRight,
+  Clock,
+  RefreshCw,
 } from 'lucide-react';
 import { PackageData } from '../types/tracking';
 
@@ -16,12 +18,16 @@ interface PackageSummaryCardProps {
   packageData: PackageData;
   onSaveToHistory: () => void;
   isSaved: boolean;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 export const PackageSummaryCard: React.FC<PackageSummaryCardProps> = ({
   packageData,
   onSaveToHistory,
   isSaved,
+  onRefresh,
+  isRefreshing = false,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -31,7 +37,7 @@ export const PackageSummaryCard: React.FC<PackageSummaryCardProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const { carrier, trackingNumber, origin, destination, currentStatusTitle, estimatedDelivery, progressPercent, shippingService, weight, pieces } = packageData;
+  const { carrier, trackingNumber, origin, destination, currentStatusTitle, estimatedDelivery, progressPercent, shippingService, weight, pieces, isFromCache } = packageData;
 
   return (
     <div className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-5 relative overflow-hidden">
@@ -61,12 +67,43 @@ export const PackageSummaryCard: React.FC<PackageSummaryCardProps> = ({
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
             </div>
-            <span className="text-xs text-slate-400">{shippingService}</span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-xs text-slate-400">{shippingService}</span>
+              {isFromCache ? (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-950/70 text-emerald-300 border border-emerald-500/30"
+                  title="Results cached for 5 minutes to prevent redundant API queries. Click Refresh for fresh update."
+                >
+                  <Clock className="w-2.5 h-2.5 text-emerald-400" />
+                  <span>Cached (5m)</span>
+                </span>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-950/70 text-indigo-300 border border-indigo-500/30"
+                  title="Live carrier API result (cached for 5 minutes)"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                  <span>Live</span>
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Refresh live package tracking (bypasses 5m cache)"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-indigo-400' : 'text-slate-400'}`} />
+              <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+          )}
+
           <button
             onClick={onSaveToHistory}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
