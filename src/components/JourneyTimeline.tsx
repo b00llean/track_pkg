@@ -284,8 +284,8 @@ export const JourneyTimeline: React.FC<JourneyTimelineProps> = ({
                     <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                     <span>
                       {calculateTransitDuration(
-                        reversedGroups[groupIdx + 1].latestCheckpoint.timestamp,
-                        group.checkpoints[0].timestamp
+                        reversedGroups[groupIdx + 1],
+                        group
                       )}
                     </span>
                     <ArrowDown className="w-3 h-3 text-indigo-400 shrink-0" />

@@ -143,10 +143,21 @@ const KNOWN_LOGISTICS_HUBS: Record<string, [number, number]> = {
   'portland, or': [45.5152, -122.6784],
   'anchorage, ak': [61.2181, -149.9003],
 
-  // International DHL & Global Hubs
+  // International DHL, UPS & Global Hubs
   'frankfurt, germany': [50.1109, 8.6821],
   'leipzig, germany': [51.3397, 12.3731],
+  'cologne, germany': [50.8659, 7.1427],
+  'chek lap kok, hong kong': [22.3080, 113.9185],
+  'chek lap kok': [22.3080, 113.9185],
   'hong kong': [22.3193, 114.1694],
+  'shenzhen, china': [22.5431, 114.0579],
+  'shenzhen': [22.5431, 114.0579],
+  'shanghai, china': [31.2304, 121.4737],
+  'zhengzhou, china': [34.7466, 113.6253],
+  'incheon, south korea': [37.4602, 126.4407],
+  'taipei, taiwan': [25.0330, 121.5654],
+  'narita, japan': [35.7720, 140.3929],
+  'osaka, japan': [34.6937, 135.5023],
   'tokyo, japan': [35.6762, 139.6503],
   'london, uk': [51.5074, -0.1278],
 };

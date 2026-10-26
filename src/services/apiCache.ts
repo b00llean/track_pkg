@@ -6,7 +6,7 @@ import type { PackageData } from '../types/tracking';
  */
 export const API_CACHE_TTL_MS = 5 * 60 * 1000;
 
-export const API_CACHE_STORAGE_KEY = 'track_pkg_api_cache_v1';
+export const API_CACHE_STORAGE_KEY = 'track_pkg_api_cache_v2';
 export const GENERIC_API_CACHE_STORAGE_KEY = 'track_pkg_generic_api_cache_v1';
 const MAX_CACHE_ENTRIES = 50;
 

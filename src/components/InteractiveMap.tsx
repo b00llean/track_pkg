@@ -201,10 +201,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
       const midLat = (g1.latitude + g2.latitude) / 2;
       const midLng = (g1.longitude + g2.longitude) / 2;
-      const durationText = calculateTransitDuration(
-        g1.latestCheckpoint.timestamp,
-        g2.checkpoints[0].timestamp
-      );
+      const durationText = calculateTransitDuration(g1, g2);
 
       list.push({
         id: `seg-${g1.id}-${g2.id}`,

@@ -24,6 +24,9 @@ export interface Checkpoint {
   id: string;
   sequence: number;
   timestamp: string;
+  rawTimestamp?: string;
+  timeIso?: string;
+  timeUtc?: string;
   location: string;
   city: string;
   stateCountry: string;

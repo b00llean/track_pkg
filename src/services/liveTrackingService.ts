@@ -358,19 +358,50 @@ export async function fetchLivePackageTracking(
   // Parse raw events array (reverse chronologically if needed so earliest event is index 0)
   // 17TRACK events array has latest event at index 0, so reverse it for journey timeline
   const chronologicalEvents = [...events].reverse();
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   const rawCheckpoints = chronologicalEvents.map((ev: any) => {
-    let dateStr = ev.time_iso || ev.a || ev.time || '';
-    if (dateStr) {
+    const timeIso: string | undefined = ev.time_iso || undefined;
+    const timeUtc: string | undefined = ev.time_utc || undefined;
+    let rawLocalIso = '';
+    if (ev.time_raw && ev.time_raw.date) {
+      rawLocalIso = `${ev.time_raw.date}T${ev.time_raw.time || '00:00:00'}`;
+    } else if (timeIso) {
+      rawLocalIso = timeIso.replace(/(?:Z|[+-]\d{2}:?\d{2})$/i, '');
+    } else if (ev.a || ev.time) {
+      rawLocalIso = String(ev.a || ev.time);
+    }
+
+    let dateStr = '';
+    const match = rawLocalIso.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
+    if (match) {
+      const monthIdx = parseInt(match[2], 10) - 1;
+      const day = match[3];
+      const hour24 = parseInt(match[4], 10);
+      const minute = match[5];
+      const ampm = hour24 >= 12 ? 'PM' : 'AM';
+      const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+      const hourStr = String(hour12).padStart(2, '0');
+      dateStr = `${MONTHS[monthIdx] || match[2]} ${day} - ${hourStr}:${minute} ${ampm}`;
+    } else if (timeIso || ev.a || ev.time) {
+      const fallbackRaw = timeIso || ev.a || ev.time || '';
       try {
-        const d = new Date(dateStr);
-        dateStr = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) + ' - ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const d = new Date(fallbackRaw);
+        if (!isNaN(d.getTime())) {
+          dateStr = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) + ' - ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        } else {
+          dateStr = fallbackRaw;
+        }
       } catch {
-        dateStr = ev.time_raw ? `${ev.time_raw.date} ${ev.time_raw.time || ''}` : dateStr;
+        dateStr = fallbackRaw;
       }
     }
+
     return {
       timestamp: dateStr || 'Scanned',
+      rawTimestamp: rawLocalIso || undefined,
+      timeIso,
+      timeUtc,
       location: ev.location || ev.c || ev.z || 'Carrier Hub',
       description: ev.description || ev.z || ev.status || 'Package update recorded',
       status: ev.stage || ev.sub_status || ev.status || 'in_transit',
@@ -406,6 +437,9 @@ export async function fetchLivePackageTracking(
       id: `live-cp-${cleanNum}-${idx + 1}`,
       sequence: idx + 1,
       timestamp: raw.timestamp,
+      rawTimestamp: raw.rawTimestamp,
+      timeIso: raw.timeIso,
+      timeUtc: raw.timeUtc,
       location: locString,
       city: city,
       stateCountry: stateCountry,
